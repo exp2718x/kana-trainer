@@ -13,7 +13,7 @@
     .btn { background:#22d3ee; border:none; padding:8px 14px; border-radius:8px; cursor:pointer; margin:4px; }
     .btn.secondary { background:#a78bfa; }
     .btn.ghost { background:#334155; color:#fff; }
-    .input { width:100%; padding:10px; font-size:18px; border-radius:8px; border:none; margin:10px 0; }
+    .input { flex:1; padding:10px; font-size:18px; border-radius:8px; border:none; }
     .feedback { font-weight:bold; margin-top:10px; }
     .ok { color:#34d399; }
     .err { color:#f87171; }
@@ -41,11 +41,12 @@
     #history div.err { color:#f87171; }
     #history div.ok { color:#34d399; }
     #stats { margin-top:10px; font-size:16px; color:#fcd34d; }
+    #answer-row { display:flex; gap:8px; align-items:center; }
   </style>
 </head>
 <body>
 <div class="container">
-  <h1>日文五十音練習 <span style="font-size:14px; color:#94a3b8;">帶發音 & 選擇題</span></h1>
+  <h1>日文五十音練習 V2.1a <span style="font-size:14px; color:#94a3b8;">帶發音 & 選擇題</span></h1>
 
   <div class="panel">
     <div class="row">
@@ -71,8 +72,10 @@
       <label style="color:#ccc;">自訂速度 <input id="custom-speed" type="number" step="0.1" min="0.1" max="2" value="0.5" style="width:60px; padding:4px; border-radius:6px; border:none;"> </label>
     </div>
     <div id="input-mode">
-      <input class="input" id="answer" placeholder="輸入答案，Enter 送出">
-      <button class="btn secondary" id="btn-submit">送出</button>
+      <div id="answer-row">
+        <input class="input" id="answer" placeholder="輸入答案，Enter 送出">
+        <button class="btn secondary" id="btn-submit">送出</button>
+      </div>
     </div>
     <div id="choice-mode" style="display:none;">
       <div class="choices" id="choices"></div>
@@ -234,12 +237,14 @@ function checkAnswer(ans){
 
   if(correct){
     state.correct++;
-    document.getElementById('feedback').innerHTML = `<span class="ok">✔ 正確</span>`;
+    // ✅ 正確時不顯示提示，避免畫面跳動
+    document.getElementById('feedback').innerHTML = '';
     speakKana();
     document.getElementById('answer').value = '';
     addHistory(state.current, true);
     setTimeout(nextQuestion,1200);
   } else {
+    // ❌ 錯誤時保留提示
     document.getElementById('feedback').innerHTML = `<span class="err">✘ 錯誤，再試一次</span>`;
     playBeep();
     addHistory(state.current, false, ans.trim());
@@ -301,12 +306,12 @@ function addHistory(item, correct, userInput=""){
   const div = document.createElement('div');
 
   if(correct){
-    div.innerHTML = `✔ <span style="color:#34d399">${item.hira}/${item.kata} → ${item.roma[0]}</span>`;
+    div.innerHTML = `✔ <span style="color:#34d399">${item.hira}/${item.kata} → ${Array.isArray(item.roma)?item.roma[0]:item.roma}</span>`;
   } else {
     div.innerHTML = `
       ${item.hira}/${item.kata} → 
       <span style="color:#f87171;text-decoration:line-through;">${userInput}</span>, 
-      <span style="color:#34d399;">✔ ${item.roma[0]}</span>`;
+      <span style="color:#34d399;">✔ ${Array.isArray(item.roma)?item.roma[0]:item.roma}</span>`;
   }
 
   h.prepend(div); // 最新在最前
