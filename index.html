@@ -220,14 +220,14 @@ function nextQuestion(){
   }
 }
 
+
 function checkAnswer(ans){
   state.total++;
   const showKana = (state.direction==='kana2roma');
   let correct;
   if(showKana){
     const input = ans.trim().toLowerCase();
-    const romas = Array.isArray(state.current.roma) ? state.current.roma : [state.current.roma];
-    correct = romas.includes(input);
+    correct = state.current.roma.some(r => r === input);
   } else {
     correct = (ans.trim()===state.current.hira || ans.trim()===state.current.kata);
   }
@@ -242,11 +242,12 @@ function checkAnswer(ans){
   } else {
     document.getElementById('feedback').innerHTML = `<span class="err">✘ 錯誤，再試一次</span>`;
     playBeep();
-    document.getElementById('answer').value = '';
-    addHistory(state.current, false);
+    addHistory(state.current, false, ans.trim());
+    document.getElementById('answer').value = ''; // 答錯也清空
   }
   updateStats();
 }
+
 
 function renderChoices(it){
   const showKana = (state.direction==='kana2roma');
@@ -295,14 +296,24 @@ function playBeep(){
   osc.stop(ctx.currentTime+0.3);
 }
 
-function addHistory(item, correct){
+function addHistory(item, correct, userInput=""){
   const h = document.getElementById('history');
   const div = document.createElement('div');
-  div.className = correct? 'ok':'err';
-  const romaTxt = Array.isArray(item.roma)? item.roma.join('/') : item.roma;
-  div.innerHTML = `${correct? '✔':'✘'} ${item.hira}/${item.kata} → ${romaTxt}`;
-  h.prepend(div);
+
+  if(correct){
+    div.innerHTML = `✔ <span style="color:#34d399">${item.hira}/${item.kata} → ${item.roma[0]}</span>`;
+  } else {
+    div.innerHTML = `
+      ${item.hira}/${item.kata} → 
+      <span style="color:#f87171;text-decoration:line-through;">${userInput}</span>, 
+      <span style="color:#34d399;">✔ ${item.roma[0]}</span>`;
+  }
+
+  h.prepend(div); // 最新在最前
 }
+
+
+
 
 // === 假名解析與羅馬字生成（拗音 + 促音 + 長音） ===
 function generateRoma(kanaStr){
