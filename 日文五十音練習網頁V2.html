@@ -1,0 +1,296 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>日文五十音練習｜Hiragana & Katakana Trainer</title>
+  <style>
+    body { font-family: sans-serif; background:#0f172a; color:#eee; margin:0; padding:0; }
+    .container { max-width: 900px; margin:0 auto; padding:20px; }
+    .panel { background:#1e293b; border-radius:10px; padding:16px; margin-bottom:20px; }
+    h1 { margin:0 0 10px; }
+    .prompt { font-size:64px; text-align:center; margin:20px 0; }
+    .btn { background:#22d3ee; border:none; padding:8px 14px; border-radius:8px; cursor:pointer; margin:4px; }
+    .btn.secondary { background:#a78bfa; }
+    .btn.ghost { background:#334155; color:#fff; }
+    .input { width:100%; padding:10px; font-size:18px; border-radius:8px; border:none; margin:10px 0; }
+    .feedback { font-weight:bold; margin-top:10px; }
+    .ok { color:#34d399; }
+    .err { color:#f87171; }
+    .choices { display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-top:10px; }
+    .choice-btn { background:#475569; border:none; border-radius:8px; padding:10px; font-size:20px; cursor:pointer; }
+    .choice-btn:hover { background:#64748b; }
+    .row { display:flex; gap:10px; flex-wrap:wrap; }
+    label { display:flex; align-items:center; gap:4px; }
+    #history { 
+      margin-top:20px; 
+      background:#1e293b; 
+      padding:10px; 
+      border-radius:10px; 
+      font-size:16px; 
+      display:flex; 
+      flex-wrap:wrap; 
+      gap:8px; 
+    }
+    #history div { 
+      background:#334155; 
+      padding:4px 8px; 
+      border-radius:6px; 
+      white-space:nowrap; 
+    }
+    #history .wrong { color:#f87171; font-weight:bold; }
+    #stats { margin-top:10px; font-size:16px; color:#fcd34d; }
+  </style>
+</head>
+<body>
+<div class="container">
+  <h1>日文五十音練習 <span style="font-size:14px; color:#94a3b8;">帶發音 & 選擇題</span></h1>
+
+  <div class="panel">
+    <div class="row">
+      <label><input type="radio" name="direction" value="kana2roma" checked> 假名→羅馬字</label>
+      <label><input type="radio" name="direction" value="roma2kana"> 羅馬字→假名</label>
+      <label><input type="radio" name="mode" value="input" checked> 輸入模式</label>
+      <label><input type="radio" name="mode" value="choice"> 選擇題模式</label>
+    </div>
+    <div class="row">
+      <label><input type="checkbox" name="set" value="hira" checked> 平假名</label>
+      <label><input type="checkbox" name="set" value="kata" checked> 片假名</label>
+      <label><input type="checkbox" name="set" value="youon"> 含拗音</label>
+    </div>
+    <div class="prompt" id="q">—</div>
+    <div class="row" style="justify-content:center;">
+      <button class="btn" id="btn-speak">🔊 發音</button>
+      <select id="speed-select" class="btn ghost">
+        <option value="0.3">慢速</option>
+        <option value="0.5" selected>正常</option>
+        <option value="0.9">快速</option>
+      </select>
+      <label style="color:#ccc;">自訂速度 <input id="custom-speed" type="number" step="0.1" min="0.1" max="2" value="0.5" style="width:60px; padding:4px; border-radius:6px; border:none;"> </label>
+    </div>
+    <div id="input-mode">
+      <input class="input" id="answer" placeholder="輸入答案，Enter 送出">
+      <button class="btn secondary" id="btn-submit">送出</button>
+    </div>
+    <div id="choice-mode" style="display:none;">
+      <div class="choices" id="choices"></div>
+    </div>
+    <div class="feedback" id="feedback"> </div>
+  </div>
+
+  <button class="btn ghost" id="btn-clear-history">清除歷史紀錄</button>
+  <div id="stats">正確 0 / 總題數 0 (0%)</div>
+  <div id="history"></div>
+</div>
+
+<script>
+const BASIC = [
+  ['あ','ア','a'],['い','イ','i'],['う','ウ','u'],['え','エ','e'],['お','オ','o'],
+  ['か','カ','ka'],['き','キ','ki'],['く','ク','ku'],['け','ケ','ke'],['こ','コ','ko'],
+  ['さ','サ','sa'],['し','シ','shi'],['す','ス','su'],['せ','セ','se'],['そ','ソ','so'],
+  ['た','タ','ta'],['ち','チ','chi'],['つ','ツ','tsu'],['て','テ','te'],['と','ト','to'],
+  ['な','ナ','na'],['に','ニ','ni'],['ぬ','ヌ','nu'],['ね','ネ','ne'],['の','ノ','no'],
+  ['は','ハ','ha'],['ひ','ヒ','hi'],['ふ','フ','fu'],['へ','ヘ','he'],['ほ','ホ','ho'],
+  ['ま','マ','ma'],['み','ミ','mi'],['む','ム','mu'],['め','メ','me'],['も','モ','mo'],
+  ['や','ヤ','ya'],['ゆ','ユ','yu'],['よ','ヨ','yo'],
+  ['ら','ラ','ra'],['り','リ','ri'],['る','ル','ru'],['れ','レ','re'],['ろ','ロ','ro'],
+  ['わ','ワ','wa'],['を','ヲ','wo'],['ん','ン','n']
+];
+
+const YOUON = [
+  ['きゃ','キャ','kya'],['きゅ','キュ','kyu'],['きょ','キョ','kyo'],
+  ['しゃ','シャ','sha'],['しゅ','シュ','shu'],['しょ','ショ','sho'],
+  ['ちゃ','チャ','cha'],['ちゅ','チュ','chu'],['ちょ','チョ','cho'],
+  ['にゃ','ニャ','nya'],['にゅ','ニュ','nyu'],['にょ','ニョ','nyo'],
+  ['ひゃ','ヒャ','hya'],['ひゅ','ヒュ','hyu'],['ひょ','ヒョ','hyo'],
+  ['みゃ','ミャ','mya'],['みゅ','ミュ','myu'],['みょ','ミョ','myo'],
+  ['りゃ','リャ','rya'],['りゅ','リュ','ryu'],['りょ','リョ','ryo']
+];
+
+const state = {
+  pool: [],
+  direction:'kana2roma',
+  mode:'input',
+  current:null,
+  rate:0.5,
+  total:0,
+  correct:0
+};
+
+function rebuildPool(){
+  const hira = document.querySelector("input[value='hira']").checked;
+  const kata = document.querySelector("input[value='kata']").checked;
+  const youon = document.querySelector("input[value='youon']").checked;
+  let base = BASIC;
+  if(youon) base = BASIC.concat(YOUON);
+  state.pool = base.map(([h,k,r])=>({hira:h,kata:k,roma:r})).filter(it=>{
+    return (hira && it.hira) || (kata && it.kata);
+  });
+}
+
+function updateStats(){
+  const percent = state.total>0? Math.round(state.correct/state.total*100):0;
+  document.getElementById('stats').textContent = `正確 ${state.correct} / 總題數 ${state.total} (${percent}%)`;
+}
+
+function nextQuestion(){
+  if(state.pool.length===0){
+    rebuildPool();
+  }
+  const it = state.pool[Math.floor(Math.random()*state.pool.length)];
+  state.current = it;
+  const showKana = (state.direction==='kana2roma');
+
+  if(showKana){
+    const hira = document.querySelector("input[value='hira']").checked;
+    const kata = document.querySelector("input[value='kata']").checked;
+
+    if(hira && kata){
+      document.getElementById('q').textContent = Math.random()<0.5 ? it.hira : it.kata;
+    }else if(hira){
+      document.getElementById('q').textContent = it.hira;
+    }else if(kata){
+      document.getElementById('q').textContent = it.kata;
+    }else{
+      document.getElementById('q').textContent = '（請勾選平假名或片假名）';
+    }
+  } else {
+    document.getElementById('q').textContent = it.roma;
+  }
+
+  document.getElementById('feedback').textContent = '';
+  document.getElementById('answer').value = '';
+
+  if(state.mode==='choice'){
+    renderChoices(it);
+  }
+}
+
+function checkAnswer(ans){
+  state.total++;
+  const showKana = (state.direction==='kana2roma');
+  let correct;
+  if(showKana){
+    correct = (ans.trim().toLowerCase()===state.current.roma);
+  } else {
+    correct = (ans.trim()===state.current.hira || ans.trim()===state.current.kata);
+  }
+
+  if(correct){
+    state.correct++;
+    document.getElementById('feedback').innerHTML = `<span class="ok">✔ 正確</span>`;
+    speakKana();
+    document.getElementById('answer').value = '';
+    addHistory(state.current, true);
+    setTimeout(nextQuestion,1200);
+  } else {
+    document.getElementById('feedback').innerHTML = `<span class="err">✘ 錯誤，再試一次</span>`;
+    playBeep();
+    document.getElementById('answer').value = '';
+    addHistory(state.current, false);
+  }
+  updateStats();
+}
+
+function renderChoices(it){
+  const showKana = (state.direction==='kana2roma');
+  const correct = showKana? it.roma : it.hira;
+  let options = new Set([correct]);
+  while(options.size<4){
+    const rnd = state.pool[Math.floor(Math.random()*state.pool.length)];
+    options.add(showKana? rnd.roma : rnd.hira);
+  }
+  const arr = Array.from(options).sort(()=>Math.random()-0.5);
+  const box = document.getElementById('choices');
+  box.innerHTML = '';
+  arr.forEach(opt=>{
+    const b = document.createElement('button');
+    b.textContent = opt;
+    b.className = 'choice-btn';
+    b.onclick=()=>checkAnswer(opt);
+    box.appendChild(b);
+  });
+}
+
+function speakKana(){
+  if(!state.current) return;
+  const kana = state.current.hira;
+  const utter = new SpeechSynthesisUtterance(kana + 'ーー');
+  utter.lang = 'ja-JP';
+  utter.rate = state.rate;
+  utter.pitch = 1.0;
+  utter.volume = 1.0;
+  speechSynthesis.speak(utter);
+}
+
+function playBeep(){
+  const ctx = new (window.AudioContext||window.webkitAudioContext)();
+  const osc = ctx.createOscillator();
+  const gain = ctx.createGain();
+  osc.type = 'sine';
+  osc.frequency.value = 440;
+  osc.connect(gain);
+  gain.connect(ctx.destination);
+  osc.start();
+  gain.gain.setValueAtTime(0.2, ctx.currentTime);
+  osc.stop(ctx.currentTime+0.3);
+}
+
+function addHistory(item, correct){
+  const h = document.getElementById('history');
+  const div = document.createElement('div');
+  if(correct){
+    div.innerHTML = `✔ ${item.hira}/${item.kata} → ${item.roma}`;
+  } else {
+    div.innerHTML = `✘ ${item.hira}/${item.kata} → ${item.roma}`;
+    div.classList.add('wrong');
+  }
+  h.prepend(div);
+}
+
+document.querySelectorAll('input[name="direction"]').forEach(r=>{
+  r.onchange=e=>{ state.direction=e.target.value; nextQuestion(); };
+});
+document.querySelectorAll('input[name="mode"]').forEach(r=>{
+  r.onchange=e=>{
+    state.mode=e.target.value;
+    document.getElementById('input-mode').style.display = state.mode==='input'? '':'none';
+    document.getElementById('choice-mode').style.display = state.mode==='choice'? '':'none';
+    nextQuestion();
+  };
+});
+
+document.querySelectorAll('input[name="set"]').forEach(c=>{
+  c.onchange=()=>{ rebuildPool(); nextQuestion(); };
+});
+
+document.getElementById('btn-submit').onclick=()=>{
+  checkAnswer(document.getElementById('answer').value);
+};
+document.getElementById('answer').addEventListener('keydown',e=>{
+  if(e.key==='Enter') checkAnswer(document.getElementById('answer').value);
+});
+document.getElementById('btn-speak').onclick=speakKana;
+
+document.getElementById('speed-select').onchange=e=>{
+  state.rate=parseFloat(e.target.value);
+  document.getElementById('custom-speed').value = state.rate;
+};
+document.getElementById('custom-speed').onchange=e=>{
+  let val=parseFloat(e.target.value);
+  if(!isNaN(val)&&val>0&&val<=2){
+    state.rate=val;
+  }
+};
+
+document.getElementById('btn-clear-history').onclick=()=>{
+  document.getElementById('history').innerHTML='';
+  state.total=0; state.correct=0; updateStats();
+};
+
+rebuildPool();
+nextQuestion();
+updateStats();
+</script>
+</body>
+</html>
