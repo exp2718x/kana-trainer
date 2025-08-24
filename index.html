@@ -16,9 +16,9 @@
     .menu {
       display: flex;
       justify-content: center;
+      flex-wrap: wrap;
       gap: 20px;
       margin-top: 40px;
-      flex-wrap: wrap;
     }
     .menu a {
       display: inline-block;
@@ -28,13 +28,12 @@
       text-decoration: none;
       font-size: 18px;
       border-radius: 8px;
-      transition: background 0.3s;
       min-width: 120px;
+      transition: background 0.3s;
     }
     .menu a:hover {
       background: #45a049;
     }
-    /* 停用樣式 */
     .menu a.disabled {
       background: gray;
       pointer-events: none; /* 不能點 */
@@ -44,12 +43,35 @@
   </style>
 </head>
 <body>
-  <h1>日語練習</h1>
+  <h1>Kana Trainer</h1>
   <p>請選擇練習頁面：</p>
-  <div class="menu">
-    <a href="日文五十音練習網頁V3.html">五十音練習網頁</a>
-	<a href="日文單字練習V01.html"class="disabled">日文單字練習</a>        
-  </div>
+  
+  <!-- 選單容器 -->
+  <div class="menu" id="menu"></div>
+
+  <script>
+    // 定義頁面清單
+    const pages = [
+      { name: "日語五十音練習", file: "日文五十音練習網頁V3.html", open: true },
+      { name: "日文單字練習", file: "日文單字練習V01.html", open: false } // 停用頁面
+      // 後續要加 a03、a04，只要加在這裡
+    ];
+
+    const menuDiv = document.getElementById("menu");
+
+    // 生成按鈕
+    pages.forEach(p => {
+      const a = document.createElement("a");
+      a.textContent = p.name;
+      if (p.open) {
+        a.href = p.file; // 可用頁面設連結
+      } else {
+        a.href = "#"; // 停用頁面不要跳轉
+        a.classList.add("disabled");
+      }
+      menuDiv.appendChild(a);
+    });
+  </script>
 </body>
 </html>
 
