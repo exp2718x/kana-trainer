@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>日文單字練習（匯入題庫版）</title>
+<script src="https://cdn.jsdelivr.net/npm/xlsx/dist/xlsx.full.min.js"></script>
+<style>
+  body{font-family:sans-serif;background:#0f172a;color:#f1f5f9;margin:0;padding:0;}
+  header{padding:20px;text-align:center;border-bottom:1px solid #1f2937;}
+  h1{margin:0;font-size:24px}
+  .sub{color:#94a3b8;font-size:14px;margin-top:6px}
+  .wrap{max-width:1000px;margin:0 auto;padding:16px;}
+  .tabs{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px}
+  .tab{padding:8px 14px;border:1px solid #334155;border-radius:12px;cursor:pointer;background:#1e293b}
+  .tab.active{border-color:#22d3ee;background:#0f172a}
+  .panel{display:none;background:#111827;padding:16px;border-radius:12px}
+  .panel.active{display:block}
+  .card{border:1px solid #334155;border-radius:12px;background:#1e293b;padding:20px;margin:16px auto;text-align:center}
+  .big{font-size:28px;margin:6px 0}
+  .muted{color:#94a3b8}
+  button{margin:6px;padding:8px 16px;border:none;border-radius:8px;cursor:pointer}
+  .accent{background:#22d3ee;color:#000}
+  input{padding:8px;border-radius:8px;border:1px solid #334155;background:#0f172a;color:#f1f5f9}
+  #history{margin-top:20px;padding:10px;border-top:1px solid #334155;max-height:200px;overflow-y:auto;display:flex;flex-wrap:wrap;gap:8px;}
+  .history-item{padding:4px 8px;border-radius:6px;background:#1e293b;}
+  .wrong{color:#ef4444;text-decoration:line-through;background:#450a0a;}
+  .correct{color:#f1f5f9;text-decoration:none;}
+
+</style>
+</head>
+<body>
+<header>
+  <h1>日文單字練習</h1>
+  <div class="sub">請先匯入 Excel(.xlsx) / CSV / JSON 題庫</div>
+  <input type="file" id="fileInput" accept=".xlsx,.csv,.json">
+</header>
+<div class="wrap">
+  <div class="tabs">
+    <div class="tab active" data-panel="flash">卡片</div>
+    <div class="tab" data-panel="mcq">選擇題</div>
+    <div class="tab" data-panel="typing">拼寫測驗</div>
+    <div class="tab" data-panel="list">單字表</div>
+  </div>
+
+  <!-- Flashcards -->
+  <section id="flash" class="panel active">
+    <div class="card">
+      <div id="jpF" class="big"></div>
+      <div id="zhF" class="big muted" style="display:none"></div>
+    </div>
+    <button id="flip" class="accent">翻面</button>
+    <button id="next">下一張</button>
+  </section>
+
+  <!-- Multiple Choice -->
+  <section id="mcq" class="panel">
+    <div id="questionText" class="big"></div>
+    <div id="options"></div>
+    <button id="nextQ" class="accent">下一題</button>
+    <div id="history"></div>
+  </section>
+
+  <!-- Typing -->
+  <section id="typing" class="panel">
+    <div id="typingPrompt" class="big"></div>
+    <input id="typingInput" placeholder="輸入答案">
+    <button id="typingCheck" class="accent">送出</button>
+    <div id="typingFeedback" class="muted"></div>
+    <div id="history"></div>
+  </section>
+
+  <!-- List -->
+  <section id="list" class="panel">
+    <input id="search" placeholder="搜尋單字">
+    <div id="table"></div>
+  </section>
+</div>
+
+<script>
+let VOCAB = [];
+
+// 匯入檔案
+document.getElementById("fileInput").addEventListener("change", function(evt){
+  const file = evt.target.files[0];
+  if(!file) return;
+  const reader = new FileReader();
+  reader.onload = function(e){
+    if(file.name.endsWith(".xlsx")){
+      const data = new Uint8Array(e.target.result);
+      const workbook = XLSX.read(data, {type:"array"});
+      const sheet = workbook.Sheets[workbook.SheetNames[0]];
+      const rows = XLSX.utils.sheet_to_json(sheet, {header:1});
+      VOCAB = rows.slice(1).map(r=>({reading:r[0]||"", kanji:r[1]||"", zh:r[2]||""}));
+    } else if(file.name.endsWith(".csv")){
+      const text = new TextDecoder("utf-8").decode(e.target.result);
+      VOCAB = text.split("\n").map(line=>{
+        const [reading, kanji, zh] = line.split(",");
+        return {reading:reading||"", kanji:kanji||"", zh:zh||""};
+      });
+    } else if(file.name.endsWith(".json")){
+      const text = new TextDecoder("utf-8").decode(e.target.result);
+      VOCAB = JSON.parse(text);
+    }
+    alert("匯入完成，共 " + VOCAB.length + " 筆單字！");
+    resetAll();
+  };
+  if(file.name.endsWith(".xlsx")) reader.readAsArrayBuffer(file);
+  else reader.readAsArrayBuffer(file);
+});
+
+// 工具
+const $=q=>document.querySelector(q), $$=q=>document.querySelectorAll(q);
+const rand=n=>Math.floor(Math.random()*n);
+const shuffle=arr=>{for(let i=arr.length-1;i>0;i--){const j=rand(i+1);[arr[i],arr[j]]=[arr[j],arr[i]];}return arr;};
+
+// Tabs
+$$(".tab").forEach(t=>t.onclick=()=>{$$(".tab").forEach(x=>x.classList.remove("active"));t.classList.add("active");$$(".panel").forEach(p=>p.classList.remove("active"));$("#"+t.dataset.panel).classList.add("active");});
+
+// ====== Flashcards ======
+let fidx=0,showZh=false;
+function jpText(v){return v.kanji? v.kanji : v.reading;}
+function renderFlash(){if(VOCAB.length===0)return;let v=VOCAB[fidx];$("#jpF").textContent=jpText(v);$("#zhF").textContent=v.zh;$("#zhF").style.display=showZh?"block":"none";}
+$("#flip").onclick=()=>{showZh=!showZh;renderFlash();};
+$("#next").onclick=()=>{if(VOCAB.length===0)return;fidx=(fidx+1)%VOCAB.length;showZh=false;renderFlash();};
+
+// ====== History ======
+function addHistory(question, userAns, correctAns, isCorrect){
+  const item = document.createElement("div");
+  item.className = "history-item";
+  item.appendChild(document.createTextNode(question + " → "));
+  const ua = document.createElement("span");
+  if(!isCorrect) ua.className = "wrong";
+  ua.textContent = userAns;
+  item.appendChild(ua);
+  if(!isCorrect){
+    item.appendChild(document.createTextNode(" "));
+    const ca = document.createElement("span");
+    ca.className = "correct";  // ⭐ 保持正常顏色
+    ca.textContent = "（正確：" + correctAns + "）";
+    item.appendChild(ca);
+  }
+  $$("#history").forEach(el=>el.insertBefore(item.cloneNode(true), el.firstChild));
+}
+
+
+// ====== Multiple Choice ======
+function newMCQ(){if(VOCAB.length===0)return;const v=VOCAB[rand(VOCAB.length)],mode=Math.random()<0.5?"jp2zh":"zh2jp";$("#questionText").textContent=mode==="jp2zh"?jpText(v):v.zh;const opts=shuffle(VOCAB.slice()).slice(0,3).concat([v]);shuffle(opts);$("#options").innerHTML="";opts.forEach(o=>{let b=document.createElement("button");b.textContent=mode==="jp2zh"?o.zh:jpText(o); b.onclick=()=>{let isCorrect=(o===v);b.style.background=isCorrect?"#10b981":"#ef4444";addHistory(mode==="jp2zh"?jpText(v):v.zh, b.textContent, mode==="jp2zh"?v.zh:jpText(v), isCorrect); setTimeout(newMCQ,600)};$("#options").appendChild(b);});}
+$("#nextQ").onclick=newMCQ;
+
+// ====== Typing ======
+let curT,modeT;
+function newT(){if(VOCAB.length===0)return;curT=VOCAB[rand(VOCAB.length)];modeT=Math.random()<0.5?"jp2zh":"zh2jp";$("#typingPrompt").textContent=modeT==="jp2zh"?jpText(curT):curT.zh;$("#typingInput").value="";$("#typingFeedback").textContent="";}
+function checkT(){if(!curT)return;let ans=$("#typingInput").value.trim();if(modeT==="jp2zh"){let correct=curT.zh;let isCorrect=(ans===correct);$("#typingFeedback").textContent=isCorrect?"✅ 正確":"❌ 答案："+correct;addHistory(jpText(curT), ans, correct, isCorrect);}else{let corrects=[curT.reading,curT.kanji].filter(Boolean);let isCorrect=corrects.includes(ans);$("#typingFeedback").textContent=isCorrect?"✅ 正確":"❌ 答案："+corrects.join(" / ");addHistory(curT.zh, ans, corrects.join(" / "), isCorrect);}setTimeout(newT,800);}
+$("#typingCheck").onclick=checkT;$("#typingInput").onkeydown=e=>{if(e.key==="Enter")checkT();};
+
+// ====== List ======
+function renderList(){if(VOCAB.length===0)return;let q=$("#search").value.trim();$("#table").innerHTML="";VOCAB.filter(v=>!q||v.reading.includes(q)||v.kanji.includes(q)||v.zh.includes(q)).forEach(v=>{let d=document.createElement("div");d.className="card";d.innerHTML=`<div>${v.reading} ${v.kanji}</div><div>${v.zh}</div>`;$("#table").appendChild(d);});}
+$("#search").oninput=renderList;
+
+// ====== Reset after import ======
+function resetAll(){fidx=0;showZh=false;renderFlash();newMCQ();newT();renderList();$$("#history").forEach(el=>el.innerHTML="");}
+</script>
+</body>
+</html>
