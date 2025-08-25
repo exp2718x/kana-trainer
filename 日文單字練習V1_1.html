@@ -1,0 +1,328 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>日文單字練習V1</title>
+<script src="https://cdn.jsdelivr.net/npm/xlsx/dist/xlsx.full.min.js"></script>
+<style>
+  :root{--bg:#0f172a;--card:#1e293b;--muted:#94a3b8;--bd:#334155;--accent:#22d3ee;--ok:#10b981;--err:#ef4444}
+  *{box-sizing:border-box}
+  body{font-family:system-ui,-apple-system,Segoe UI,Roboto,"Noto Sans TC",sans-serif;background:var(--bg);color:#f1f5f9;margin:0}
+  header{padding:18px 12px;text-align:center;border-bottom:1px solid #1f2937}
+  h1{margin:0;font-size:22px}
+  .sub{color:var(--muted);font-size:13px;margin:6px 0 10px}
+  .wrap{max-width:1160px;margin:0 auto;padding:14px}
+  .row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+  .chip{display:inline-flex;align-items:center;gap:6px;padding:6px 10px;border:1px solid var(--bd);border-radius:999px;background:var(--card)}
+  .btn{padding:8px 12px;border-radius:10px;border:1px solid var(--bd);background:var(--card);color:#e5e7eb;cursor:pointer}
+  .btn.accent{background:var(--accent);color:#000;border-color:var(--accent)}
+  .input, select{padding:8px 10px;border-radius:10px;border:1px solid var(--bd);background:var(--bg);color:#f1f5f9}
+  .tabs{display:flex;gap:8px;flex-wrap:wrap;margin:12px 0}
+  .tab{padding:8px 12px;border:1px solid var(--bd);border-radius:10px;background:var(--card);cursor:pointer}
+  .tab.active{border-color:var(--accent);background:var(--bg)}
+  .panel{display:none;background:#111827;padding:14px;border-radius:12px}
+  .panel.active{display:block}
+  .card{border:1px solid var(--bd);border-radius:12px;background:var(--card);padding:20px;text-align:center}
+  .big{font-size:34px;margin:8px 0;font-weight:600} /* 拼音字體加大 */
+  .muted{color:var(--muted)}
+  #historyBox{margin-top:14px;padding-top:10px;border-top:1px solid var(--bd);max-height:220px;overflow:auto;display:flex;flex-wrap:wrap;gap:8px}
+  .h-item{background:var(--card);border:1px solid var(--bd);padding:6px 10px;border-radius:10px}
+  .wrong{color:#fee2e2;text-decoration:line-through;margin-right:6px}
+  .correct{color:#e6f6f8}
+  #options{display:flex;flex-wrap:wrap;gap:8px;margin-top:8px}
+  #options .btn{flex:1 1 auto;min-width:140px;text-align:center}
+  #table .rowc{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;border:1px solid var(--bd);padding:8px;border-radius:8px;background:var(--card);margin:6px 0;font-size:14px}
+  .stat{font-size:12px;color:#cbd5e1}
+  .spacer{flex:1}
+</style>
+</head>
+<body>
+<header>
+  <h1>日文單字練習 V1</h1>
+  <div class="sub">請匯入 Excel / CSV / JSON 題庫。以「*第一課」做課次標頭；一般資料列為：<b>日文拼音</b>、<b>日文漢字(可空)</b>、<b>中文</b>。前置 * 代表整列註解/課次。</div>
+  
+  <div class="row" style="margin-top: 10px; justify-content: center;">
+    <input type="file" id="fileInput" accept=".xlsx,.csv,.json" />
+    <span style="color: var(--muted); margin: 0 10px;">或</span>
+    <input type="text" id="urlInput" class="input" placeholder="貼上檔案網址" style="flex:1 1 120px" />
+    <button class="btn" id="loadUrlBtn">從網址載入</button>
+  </div>
+</header>
+<div class="wrap">
+  <div class="row" id="topControls">
+    <div class="row" id="lessonControls" style="flex:1 1 auto">
+      <span class="muted">課程：</span>
+      <div id="lessonChips" class="row"></div>
+      <button class="btn" id="btnAll">全選</button>
+      <button class="btn" id="btnClear">清除</button>
+      <div class="row">
+        <select id="rangeStart" class="input" style="min-width:120px"></select>
+        <span class="muted">→</span>
+        <select id="rangeEnd" class="input" style="min-width:120px"></select>
+        <button class="btn" id="btnApplyRange">套用區間</button>
+      </div>
+    </div>
+    <div class="row" style="margin-left:auto">
+      <label class="muted">題型：</label>
+      <select id="qaMode" class="input">
+        <option value="reading2zh">拼音 → 中文</option>
+        <option value="kanji2zh">漢字 → 中文</option>
+        <option value="zh2reading" selected>中文 → 拼音</option>
+        <option value="zh2kanji">中文 → 漢字（無漢字時接受拼音）</option>
+        <option value="mixed">隨機混合</option>
+      </select>
+      <label class="muted">出題順序：</label>
+      <select id="orderMode" class="input">
+        <option value="random">隨機</option>
+        <option value="seq">順序</option>
+      </select>
+      <label class="muted">自動發音：</label>
+      <select id="speakRate" class="input">
+        <option value="0">關</option>
+        <option value="0.55">慢速</option>
+        <option value="0.65" selected>中速</option>
+        <option value="1.0">快速</option>
+      </select>
+    </div>
+  </div>
+
+  <div class="tabs">
+    <div class="tab active" data-panel="flash">卡片</div>
+    <div class="tab" data-panel="mcq">選擇題</div>
+    <div class="tab" data-panel="typing">拼寫測驗</div>
+    <div class="tab" data-panel="list">單字表</div>
+  </div>
+
+  <section id="flash" class="panel active">
+    <div class="card">
+      <div id="flashQ" class="big"></div>
+      <div id="flashA" class="big muted" style="display:none"></div>
+    </div>
+    <div class="row">
+      <button class="btn accent" id="btnFlip">翻面</button>
+      <button class="btn" id="btnNextFlash">下一張</button>
+      <div class="spacer"></div>
+      <div class="stat" id="statFlash"></div>
+    </div>
+  </section>
+
+  <section id="mcq" class="panel">
+    <div id="mcqQ" class="big"></div>
+    <div id="options"></div>
+    <div class="row">
+      <div class="spacer"></div>
+      <div class="stat" id="statMcq"></div>
+    </div>
+  </section>
+
+  <section id="typing" class="panel">
+    <div id="typeQ" class="big"></div>
+    <input id="typeAns" class="input" placeholder="輸入答案" />
+    <button class="btn accent" id="btnTypeChk">送出</button>
+    <div id="typeTip" class="muted" style="margin-top:6px"></div>
+    <div class="row">
+      <div class="spacer"></div>
+      <div class="stat" id="statType"></div>
+    </div>
+  </section>
+
+  <section id="list" class="panel">
+    <input id="search" class="input" placeholder="搜尋單字" />
+    <div id="table" style="margin-top:8px"></div>
+  </section>
+
+  <div class="row" style="margin-top:10px">
+    <button class="btn" id="btnReset">清除歷史 / 重設統計</button>
+  </div>
+
+  <div id="historyBox"></div>
+</div>
+
+<script>
+// ====== 資料結構 ======
+let VOCAB = [], LESSONS = [], SELECTED = new Set();
+let stat={ok:0,ng:0,streak:0};
+
+// ====== 小工具 ======
+const $ = s=>document.querySelector(s), $$ = s=>document.querySelectorAll(s);
+const rand = n=>Math.floor(Math.random()*n);
+const shuffle = a=>{for(let i=a.length-1;i>0;i--){const j=rand(i+1);[a[i],a[j]]=[a[j],a[i]];}return a};
+const nonEmpty = s=> (s!==undefined && s!==null && String(s).trim()!=='');
+
+// ====== 語音（唸 Excel 的「日文拼音」欄位） ======
+let autoRate = 0.65; // default 0.65 (mid, ~35% slower than 1.0)
+let JA_VOICE = null;
+function pickJaVoice(){ if(!('speechSynthesis' in window)) return null; const list = window.speechSynthesis.getVoices(); return list.find(v=>/ja/i.test(v.lang||'')) || null; }
+window.speechSynthesis && window.speechSynthesis.addEventListener('voiceschanged',()=>{ JA_VOICE = pickJaVoice(); });
+function speakReading(v){ if(!('speechSynthesis' in window)) return; if(!autoRate) return; const txt = (v && nonEmpty(v.reading))? String(v.reading) : (v && nonEmpty(v.kanji)?String(v.kanji): ''); if(!txt) return; const u = new SpeechSynthesisUtterance(txt); u.lang='ja-JP'; u.rate = autoRate; if(JA_VOICE) u.voice=JA_VOICE; window.speechSynthesis.cancel(); window.speechSynthesis.speak(u); }
+$('#speakRate').onchange=e=>{ autoRate = parseFloat(e.target.value); };
+
+// ====== 檔案匯入與解析（處理 * 課次） ======
+$('#fileInput').addEventListener('change', e=>{
+  const f = e.target.files[0]; if(!f) return; const r=new FileReader();
+  r.onload = ev => {
+    try{
+      const arr = parseFileToRows(f.name, ev.target.result);
+      ingestRows(arr);
+      renderLessonChips(); renderRangeSelectors(); resetAll();
+      alert(`匯入完成：單字 ${VOCAB.length} 筆，課次 ${LESSONS.length} 個`);
+    }catch(err){ alert('匯入失敗：'+err.message); }
+  };
+  if(f.name.endsWith('.xlsx')) r.readAsArrayBuffer(f);
+  else r.readAsArrayBuffer(f);
+});
+
+
+// ====== 新增：從網址載入檔案 ======
+$('#loadUrlBtn').addEventListener('click', async () => {
+  const fileUrl = $('#urlInput').value.trim();
+  if (!fileUrl) {
+    alert("請輸入有效的檔案網址！");
+    return;
+  }
+
+  try {
+    const response = await fetch(fileUrl);
+    if (!response.ok) {
+      throw new Error(`網路錯誤或檔案不存在 (HTTP ${response.status})`);
+    }
+
+    const contentType = response.headers.get("content-type");
+    let rows;
+    const filename = fileUrl.split('/').pop().toLowerCase();
+
+    if (contentType && contentType.includes("json") || filename.endsWith(".json")) {
+      const data = await response.json();
+      if (!Array.isArray(data)) throw new Error('JSON 格式錯誤，應為陣列');
+      // 將 JSON 物件陣列轉為列陣列，以符合 ingestRows 函式
+      rows = data.map(o => [o.reading || '', o.kanji || '', o.zh || '', o.lesson || '']);
+    } else if (contentType && contentType.includes("csv") || filename.endsWith(".csv")) {
+      const text = await response.text();
+      // 使用 XLSX 函式庫來解析 CSV，確保相容性
+      const wb = XLSX.read(text, { type: 'string' });
+      rows = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { header: 1 });
+    } else if (contentType && contentType.includes("spreadsheetml") || filename.endsWith(".xlsx")) {
+      const arrayBuffer = await response.arrayBuffer();
+      const data = new Uint8Array(arrayBuffer);
+      const wb = XLSX.read(data, { type: 'array' });
+      rows = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { header: 1 });
+    } else {
+      throw new Error("不支援的檔案類型，請提供 xlsx, csv 或 json 格式。");
+    }
+
+    ingestRows(rows);
+    renderLessonChips();
+    renderRangeSelectors();
+    resetAll();
+    alert(`匯入完成：單字 ${VOCAB.length} 筆，課次 ${LESSONS.length} 個`);
+
+  } catch (err) {
+    alert(`載入檔案失敗：${err.message}`);
+    console.error('Error:', err);
+  }
+});
+
+// ====== 新增區塊結束 ======
+
+function parseFileToRows(filename, data){
+  if(filename.endsWith('.xlsx')){
+    const wb = XLSX.read(new Uint8Array(data), {type:'array'});
+    return XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], {header:1});
+  }
+  if(filename.endsWith('.csv')){
+    // use XLSX to parse CSV consistently (handles commas in quotes)
+    const text = new TextDecoder('utf-8').decode(data);
+    const wb = XLSX.read(text, {type:'string'});
+    return XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], {header:1});
+  }
+  // json
+  const txt = new TextDecoder('utf-8').decode(data);
+  const obj = JSON.parse(txt);
+  if(Array.isArray(obj) && Array.isArray(obj[0])) return obj;
+  // convert object array to rows
+  return obj.map(o=>[o.reading||'', o.kanji||'', o.zh||'', o.lesson||'']);
+}
+
+function ingestRows(rows){
+  VOCAB = []; LESSONS = []; SELECTED.clear();
+  let curLesson = '';
+  rows.forEach(r=>{
+    if(!r || r.length===0) return;
+    const a = r[0], b=r[1], c=r[2];
+    if(a===undefined || a===null) return;
+    const s = String(a).trim();
+    if(!s) return;
+    if(s.startsWith('*')){
+      const label = s.replace(/^\*/,'').trim();
+      if(/課/.test(label)){
+        curLesson = label; if(curLesson && !LESSONS.includes(curLesson)) LESSONS.push(curLesson);
+      }
+      return; // skip comment/lesson rows
+    }
+    VOCAB.push({reading: String(a||''), kanji: String(b||''), zh: String(c||''), lesson: curLesson});
+  });
+}
+
+// ====== 課程 UI ======
+function renderLessonChips(){ const box = $('#lessonChips'); box.innerHTML=''; LESSONS.forEach((l,i)=>{ const label=document.createElement('label'); label.className='chip'; const cb=document.createElement('input'); cb.type='checkbox'; cb.value=l; cb.onchange=()=>{ if(cb.checked) SELECTED.add(l); else SELECTED.delete(l); refreshActivePanel(); }; label.appendChild(cb); label.appendChild(document.createTextNode(l)); box.appendChild(label); }); }
+function renderRangeSelectors(){ const s=$('#rangeStart'), e=$('#rangeEnd'); s.innerHTML=''; e.innerHTML=''; LESSONS.forEach((l,i)=>{ const o1=document.createElement('option'); o1.value=i; o1.textContent=l; s.appendChild(o1); const o2=document.createElement('option'); o2.value=i; o2.textContent=l; e.appendChild(o2); }); if(LESSONS.length) e.value=String(LESSONS.length-1); }
+$('#btnApplyRange').onclick=()=>{ const a=parseInt($('#rangeStart').value||'0',10), b=parseInt($('#rangeEnd').value||'0',10); const [lo,hi]= a<=b? [a,b]:[b,a]; SELECTED.clear(); LESSONS.forEach((l,i)=>{ if(i>=lo && i<=hi) SELECTED.add(l); }); $$('#lessonChips input[type=checkbox]').forEach((cb,i)=>{ cb.checked = (i>=lo && i<=hi); }); refreshActivePanel(); };
+$('#btnAll').onclick=()=>{ LESSONS.forEach(l=>SELECTED.add(l)); $$('#lessonChips input[type=checkbox]').forEach(cb=>cb.checked=true); refreshActivePanel(); };
+$('#btnClear').onclick=()=>{ SELECTED.clear(); $$('#lessonChips input[type=checkbox]').forEach(cb=>cb.checked=false); refreshActivePanel(); };
+function pool(){ return SELECTED.size? VOCAB.filter(v=>SELECTED.has(v.lesson)) : VOCAB.slice(); }
+
+// ====== 題型與出題工具 ======
+function pickQaMode(){ const sel=$('#qaMode').value; if(sel==='mixed'){ const arr=['reading2zh','kanji2zh','zh2reading','zh2kanji']; return arr[rand(arr.length)]; } return sel; }
+function getQuestion(v, mode){ switch(mode){ case 'reading2zh': return v.reading || v.kanji; case 'kanji2zh': return v.kanji || v.reading; case 'zh2reading': return v.zh; case 'zh2kanji': return v.zh; } }
+function getAnswers(v, mode){ switch(mode){ case 'reading2zh': case 'kanji2zh': return [v.zh||'']; case 'zh2reading': return [v.reading||'']; case 'zh2kanji': return v.kanji? [v.kanji]: [v.reading||'']; } }
+$('#qaMode').onchange=refreshActivePanel;
+
+// ====== 出題順序 ======
+let orderMode='random', seqIndex=0;
+$('#orderMode').onchange=e=>{ orderMode=e.target.value; seqIndex=0; refreshActivePanel(); };
+function nextIndex(max){ if(max<=0) return 0; if(orderMode==='random'){ return rand(max); } const i = seqIndex % max; seqIndex=(seqIndex+1)%max; return i; }
+
+// ====== 歷史紀錄 & 統計 ======
+function updateStat(){ const rate = (stat.ok+stat.ng)? Math.round(stat.ok*100/(stat.ok+stat.ng)) : 0; const txt=`正確 ${stat.ok}｜錯誤 ${stat.ng}｜連對 ${stat.streak}｜正確率 ${rate}%`; $('#statFlash').textContent=txt; $('#statMcq').textContent=txt; $('#statType').textContent=txt; }
+function addHistory(q, userAns, correctStr, isCorrect, v){ const d=document.createElement('div'); d.className='h-item'; const qn=document.createElement('span'); qn.textContent=q+' → '; d.appendChild(qn); if(isCorrect){ const s=document.createElement('span'); s.className='correct'; s.textContent=correctStr; d.appendChild(s); stat.ok++; stat.streak++; } else { const u=document.createElement('span'); u.className='wrong'; u.textContent=userAns; d.appendChild(u); d.appendChild(document.createTextNode(' → ')); const c=document.createElement('span'); c.className='correct'; c.textContent=correctStr; d.appendChild(c); stat.ng++; stat.streak=0; } $('#historyBox').insertBefore(d, $('#historyBox').firstChild); updateStat(); // speak the reading from the V (the excel 拼音欄)
+  speakReading(v);
+}
+$('#btnReset').onclick=()=>{ $('#historyBox').innerHTML=''; stat={ok:0,ng:0,streak:0}; updateStat(); };
+
+// ====== 卡片功能 ======
+let fV=null, fMode='reading2zh', flashShowAns=false;
+function newFlash(){ const P=pool(); if(!P.length){ $('#flashQ').textContent='請先匯入並選課'; $('#flashA').style.display='none'; return; } fMode=pickQaMode(); fV=P[nextIndex(P.length)]; $('#flashQ').textContent=getQuestion(fV,fMode); $('#flashA').textContent=getAnswers(fV,fMode).join(' / '); $('#flashA').style.display = flashShowAns? 'block':'none'; }
+$('#btnFlip').onclick=()=>{ flashShowAns=!flashShowAns; $('#flashA').style.display=flashShowAns?'block':'none'; if(flashShowAns) speakReading(fV); };
+$('#btnNextFlash').onclick=()=>{ flashShowAns=false; newFlash(); };
+
+// ====== 選擇題（每個選項不會切字；自動換行） ======
+let mcqV=null, mcqMode='reading2zh', locked=false;
+function newMCQ(){ const P=pool(); if(!P.length){ $('#mcqQ').textContent='請先匯入並選課'; $('#options').innerHTML=''; return; } mcqV=P[nextIndex(P.length)]; mcqMode=pickQaMode(); locked=false; $('#mcqQ').textContent=getQuestion(mcqV,mcqMode); const correctAns = getAnswers(mcqV,mcqMode)[0]||''; let opts=[]; if(mcqMode==='reading2zh' || mcqMode==='kanji2zh'){ const cand = shuffle(P.map(x=>x.zh).filter(z=>nonEmpty(z) && z!==correctAns)); opts = shuffle([correctAns, ...cand.slice(0,3)]); } else if(mcqMode==='zh2reading'){ const cand = shuffle(P.map(x=>x.reading).filter(r=>nonEmpty(r) && r!==correctAns)); opts = shuffle([correctAns, ...cand.slice(0,3)]); } else { const cand = shuffle(P.map(x=> (x.kanji && x.kanji.trim())? x.kanji : x.reading ).filter(k=>nonEmpty(k) && k!==correctAns)); opts = shuffle([correctAns, ...cand.slice(0,3)]); }
+  const box = $('#options'); box.innerHTML='';
+  opts.forEach(optText=>{
+    const b = document.createElement('button'); b.className='btn'; b.textContent = optText; b.onclick = ()=>{ if(locked) return; const ok = (optText === correctAns); addHistory($('#mcqQ').textContent, optText, correctAns, ok, mcqV); if(ok){ b.style.background='var(--ok)'; locked=true; setTimeout(newMCQ,600); } else { b.disabled=true; b.style.textDecoration='line-through'; b.style.opacity=0.65; b.style.background='rgba(239,68,68,0.25)'; } }; box.appendChild(b); }); }
+
+// ====== 拼寫測驗（需訂正到對才換題） ======
+let tV=null, tMode='reading2zh';
+function newTyping(){ const P=pool(); if(!P.length){ $('#typeQ').textContent='請先匯入並選課'; return; } tV = P[nextIndex(P.length)]; tMode = pickQaMode(); $('#typeQ').textContent = getQuestion(tV,tMode); $('#typeAns').value=''; $('#typeTip').textContent=''; $('#typeAns').focus(); }
+$('#btnTypeChk').onclick = ()=>{ if(!tV) return; const ans = $('#typeAns').value.trim(); const correct = getAnswers(tV,tMode).filter(nonEmpty); const ok = correct.includes(ans); addHistory($('#typeQ').textContent, ans, correct.join(' / '), ok, tV); if(ok){ $('#typeTip').textContent='✅ 正確'; setTimeout(newTyping,600); } else { $('#typeTip').textContent='❌ 請修正'; } };
+$('#typeAns').addEventListener('keydown', e=>{ if(e.key==='Enter') $('#btnTypeChk').click(); });
+
+// ====== 單字表 ======
+function renderList(){ const P=pool(); const q=$('#search').value.trim(); const box=$('#table'); box.innerHTML=''; const L = P.filter(v=> !q || (v.reading&&v.reading.includes(q)) || (v.kanji&&v.kanji.includes(q)) || (v.zh&&v.zh.includes(q)) ); L.forEach(v=>{ const d=document.createElement('div'); d.className='rowc'; d.innerHTML = `<div style="font-size:18px">${(v.reading||'')}</div><div>${(v.kanji||'')}</div><div style="color:var(--muted)">${(v.zh||'')}</div>`; box.appendChild(d); }); }
+$('#search').oninput = renderList;
+
+// ====== tab 切換與初始化 ======
+$$('.tab').forEach(t=>t.onclick=()=>{ $$('.tab').forEach(x=>x.classList.remove('active')); t.classList.add('active'); $$('.panel').forEach(p=>p.classList.remove('active')); $('#'+t.dataset.panel).classList.add('active'); refreshActivePanel(); });
+function refreshActivePanel(){ if($('#flash').classList.contains('active')) newFlash(); if($('#mcq').classList.contains('active')) newMCQ(); if($('#typing').classList.contains('active')) newTyping(); if($('#list').classList.contains('active')) renderList(); }
+
+function resetAll(){ $('#historyBox').innerHTML=''; stat={ok:0,ng:0,streak:0}; updateStat(); refreshActivePanel(); }
+
+
+
+// prefill updateStat
+updateStat();
+</script>
+</body>
+</html>
