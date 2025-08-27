@@ -2,6 +2,7 @@
 <html lang="zh-Hant">
 <head>
   <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Kana Trainer</title>
   <style>
     body {
@@ -9,9 +10,11 @@
       text-align: center;
       margin: 50px;
       background: #f4f4f9;
+      font-size: 16px; /* 增加基礎字體大小 */
     }
     h1 {
       color: #333;
+      font-size: 2rem; /* 使用相對單位 */
     }
     .menu {
       display: flex;
@@ -26,7 +29,7 @@
       background: #4CAF50;
       color: white;
       text-decoration: none;
-      font-size: 18px;
+      font-size: 1.125rem; /* 使用相對單位 */
       border-radius: 8px;
       min-width: 120px;
       transition: background 0.3s;
@@ -36,9 +39,19 @@
     }
     .menu a.disabled {
       background: gray;
-      pointer-events: none; /* 不能點 */
+      pointer-events: none;
       cursor: not-allowed;
       opacity: 0.6;
+    }
+    
+    /* 媒體查詢：當螢幕寬度小於等於 600px 時套用 */
+    @media (max-width: 600px) {
+      body {
+        margin: 20px; /* 調整手機上的外邊距 */
+      }
+      .menu a {
+        padding: 12px 24px; /* 調整手機上的按鈕內邊距 */
+      }
     }
   </style>
 </head>
@@ -46,14 +59,13 @@
   <h1>Kana Trainer</h1>
   <p>請選擇練習頁面：</p>
   
-  <!-- 選單容器 -->
   <div class="menu" id="menu"></div>
 
   <script>
     // 定義頁面清單
     const pages = [
       { name: "日語五十音練習", file: "日文五十音練習網頁V3.html", open: true },
-      { name: "日文單字練習", file: "日文單字練習V1_1.html", open: true } // 停用頁面
+      { name: "日文單字練習", file: "日文單字練習V1_4a.html", open: true } // 停用頁面
       // 後續要加 a03、a04，只要加在這裡
     ];
 
@@ -74,6 +86,3 @@
   </script>
 </body>
 </html>
-
-
-
