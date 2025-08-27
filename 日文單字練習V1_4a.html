@@ -1,0 +1,368 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>日文單字練習</title>
+<script src="https://cdn.jsdelivr.net/npm/xlsx/dist/xlsx.full.min.js"></script>
+<style>
+  :root{--bg:#0f172a;--card:#1e293b;--muted:#94a3b8;--bd:#334155;--accent:#22d3ee;--ok:#10b981;--err:#ef4444}
+  *{box-sizing:border-box}
+  body{font-family:system-ui,-apple-system,Segoe UI,Roboto,"Noto Sans TC",sans-serif;background:var(--bg);color:#f1f5f9;margin:0}
+  header{padding:18px 12px;text-align:center;border-bottom:1px solid #1f2937}
+  h1{margin:0;font-size:22px}
+  .sub{color:var(--muted);font-size:13px;margin:6px 0 10px}
+  .wrap{max-width:1160px;margin:0 auto;padding:14px}
+  .row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+  .btn{padding:12px 16px;border-radius:10px;border:1px solid var(--bd);background:var(--card);color:#e5e7eb;cursor:pointer;font-size:20px}
+  .btn.accent{background:var(--accent);color:#000;border-color:var(--accent)}
+  .btn.selected{outline:3px solid #fbbf24}
+  .btn.wrongbtn{text-decoration:line-through;color:var(--err);opacity:1}
+  .btn.correctbtn{box-shadow:0 0 0 3px rgba(16,185,129,0.12);border:2px solid var(--ok)}
+  .input, select{padding:8px 10px;border-radius:10px;border:1px solid var(--bd);background:var(--bg);color:#f1f5f9}
+  .big{font-size:34px;font-weight:600;margin:8px 0}
+  #history{margin-top:20px;padding:10px;border-top:1px solid var(--bd);font-size:14px;display:flex;flex-wrap:wrap;gap:8px}
+  .h-item{background:var(--card);border:1px solid var(--bd);padding:6px 10px;border-radius:8px}
+  .h-item .wrong{color:var(--err);text-decoration:line-through;margin-right:6px}
+  .h-item .correct{color:#e6f6f8}
+  #stats{margin-top:12px;font-size:15px;color:var(--muted)}
+  #options{
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    gap:20px;
+    margin-top:8px;
+  }
+  #options .group1 .btn{
+    background:#334155;
+    flex:1 1 auto;
+    min-width:140px;
+    text-align:center;
+    margin:4px;
+  }
+  #options .group2 .btn{
+    background:#1e40af;
+    flex:1 1 auto;
+    min-width:140px;
+    text-align:center;
+    margin:4px;
+  }
+  .modal{position:fixed;inset:0;background:rgba(0,0,0,0.6);display:none;align-items:center;justify-content:center;z-index:1000}
+  .modal-content{background:var(--card);padding:20px;border-radius:12px;max-width:560px;max-height:80vh;overflow:auto}
+  .modal h2{margin-top:0;font-size:18px}
+  .lesson-options{display:flex;flex-wrap:wrap;gap:8px}
+  .lesson-chip{padding:8px 12px;border:1px solid var(--bd);border-radius:999px;cursor:pointer;background:var(--card);color:#e5e7eb}
+  .lesson-chip.selected{background:var(--accent);color:#000;border-color:var(--accent)}
+</style>
+</head>
+<body>
+<header>
+  <h1>日文單字練習</h1>
+</header>
+
+<div class="wrap">
+  <div class="row">
+    <input type="file" id="fileInput" class="input" accept=".xlsx,.csv,.json" />
+    <button id="loadDefaultBtn" class="btn accent">載入預設題庫</button>
+  </div>
+  <div class="row" style="margin-top: 10px;">
+    <button id="btnLesson" class="btn">課程選擇</button>
+    <label class="muted">題型</label>
+    <select id="qaMode" class="input">
+      <option value="zh2both">中文 → 拼音 + 漢字</option>
+      <option value="reading2both">拼音 → 漢字 + 中文</option>
+      <option value="kanji2both">漢字 → 拼音 + 中文</option>
+      <option value="mixed">隨機混合</option>
+    </select>
+  </div>
+
+  <section id="mcq">
+    <div id="mcqQ" class="big">請先匯入題庫</div>
+    <div id="options"></div>
+  </section>
+
+  <div id="stats"></div>
+  <div id="history"></div>
+</div>
+
+<div id="lessonModal" class="modal">
+  <div class="modal-content">
+    <h2>課程選擇</h2>
+    <div class="lesson-options" id="lessonOptions"></div>
+    <div style="text-align: right; margin-top: 20px;">
+      <button id="closeModalBtn" class="btn">確定</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const $ = s=>document.querySelector(s);
+const $$ = s=>document.querySelectorAll(s);
+const rand = n=>Math.floor(Math.random()*n);
+const shuffle = a=>{ for(let i=a.length-1;i>0;i--){ const j=rand(i+1); [a[i],a[j]]=[a[j],a[i]];} return a };
+
+// 題庫
+let VOCAB_ALL = [];
+let VOCAB = [];
+let LESSONS = [{name: '全部', selected: true}];
+let currentQ = null;
+let selected = {g1:null,g2:null};
+let btnSelected = {g1:null,g2:null};
+let stats={total:0,correct:0,wrong:0};
+
+// 載入預設題庫
+const DEFAULT_URL = "https://raw.githubusercontent.com/exp2718x/kana-trainer/refs/heads/main/00-%E6%97%A5%E6%96%87%E5%96%AE%E5%AD%97.xlsx";
+
+$('#loadDefaultBtn').addEventListener('click', loadDefault);
+
+async function loadDefault(){
+  try {
+    const res = await fetch(DEFAULT_URL);
+    const buf = await res.arrayBuffer();
+    const wb = XLSX.read(buf, { type: 'array' });
+    const ws = wb.Sheets[wb.SheetNames[0]];
+    const data = XLSX.utils.sheet_to_json(ws, { header: 1 });
+    parseData(data);
+  } catch(e){ alert('載入失敗:'+e); }
+}
+
+window.addEventListener('DOMContentLoaded', loadDefault);
+
+$('#fileInput').addEventListener('change', e=>{
+  const file=e.target.files[0]; if(!file) return;
+  const reader=new FileReader();
+  reader.onload=evt=>{
+    const data=new Uint8Array(evt.target.result);
+    const wb=XLSX.read(data,{type:'array'});
+    const ws=wb.Sheets[wb.SheetNames[0]];
+    const arr=XLSX.utils.sheet_to_json(ws,{header:1});
+    parseData(arr);
+  };
+  reader.readAsArrayBuffer(file);
+});
+
+function parseData(rows){
+  VOCAB_ALL = [];
+  LESSONS = [{name: '全部', selected: true}];
+  let currentLesson = '全部';
+
+  for(const r of rows){
+    if(!r || !r[0]) continue;
+    const firstCol = String(r[0]).trim();
+    if(firstCol.startsWith('**')){
+      // 忽略以 ** 開頭的行，視為註解
+      continue;
+    }
+    if(firstCol.startsWith('*')){
+      // 處理以 * 開頭的行，視為課程標題
+      currentLesson = firstCol.substring(1).trim();
+      LESSONS.push({name: currentLesson, selected: false});
+      continue;
+    }
+    
+    VOCAB_ALL.push({reading:(r[0]||'').toString().trim(), kanji:(r[1]||'').toString().trim(), zh:(r[2]||'').toString().trim(), lesson: currentLesson});
+  }
+
+  if(VOCAB_ALL.length===0){ alert('題庫為空或格式錯誤'); return; }
+  
+  // 渲染課程選項
+  renderLessonOptions();
+  
+  // 根據課程選擇過濾單字
+  filterVocabByLesson();
+  
+  stats={total:0,correct:0,wrong:0};
+  updateStats();
+  renderMcq();
+}
+
+function renderLessonOptions() {
+  const container = $('#lessonOptions');
+  container.innerHTML = '';
+  LESSONS.forEach(l => {
+    const chip = document.createElement('div');
+    chip.className = 'lesson-chip';
+    if(l.selected) chip.classList.add('selected');
+    chip.textContent = l.name;
+    chip.onclick = () => toggleLessonSelection(l.name);
+    container.appendChild(chip);
+  });
+}
+
+function toggleLessonSelection(lessonName) {
+  if (lessonName === '全部') {
+    LESSONS.forEach(l => l.selected = false);
+    LESSONS[0].selected = true;
+  } else {
+    LESSONS[0].selected = false;
+    const lesson = LESSONS.find(l => l.name === lessonName);
+    if(lesson) lesson.selected = !lesson.selected;
+    const selectedLessons = LESSONS.filter(l => l.selected);
+    if(selectedLessons.length === 0) {
+      LESSONS[0].selected = true;
+    }
+  }
+  renderLessonOptions();
+}
+
+function filterVocabByLesson() {
+  const selectedLessons = LESSONS.filter(l => l.selected).map(l => l.name);
+  if(selectedLessons.includes('全部')){
+    VOCAB = VOCAB_ALL;
+  } else {
+    VOCAB = VOCAB_ALL.filter(v => selectedLessons.includes(v.lesson));
+  }
+}
+
+// 課程選擇彈窗
+$('#btnLesson').addEventListener('click', ()=>{
+  renderLessonOptions();
+  $('#lessonModal').style.display = 'flex';
+});
+
+$('#closeModalBtn').addEventListener('click', ()=>{
+  $('#lessonModal').style.display = 'none';
+  filterVocabByLesson();
+  renderMcq();
+});
+
+function pickQaMode(){ let m=$('#qaMode').value; if(m==='mixed'){ const arr=['zh2both','reading2both','kanji2both']; m = arr[rand(arr.length)]; } return m; }
+
+function clearSelectionState(){ selected.g1 = null; selected.g2 = null; if(btnSelected.g1){ btnSelected.g1.classList.remove('selected'); } if(btnSelected.g2){ btnSelected.g2.classList.remove('selected'); } btnSelected.g1=null; btnSelected.g2=null; $$('#options .btn').forEach(b=>{ b.disabled=false; b.classList.remove('wrongbtn','correctbtn'); }); }
+
+function renderMcq(){
+  if(VOCAB.length===0){ $('#mcqQ').textContent='請先匯入題庫或選擇課程'; $('#options').innerHTML=''; return; }
+  clearSelectionState();
+  const mode = pickQaMode();
+  const v = VOCAB[rand(VOCAB.length)];
+  currentQ = v;
+  let q = '';
+  let group1 = [], group2 = [];
+
+  if(mode==='zh2both'){
+    q = v.zh;
+    group1 = shuffle(VOCAB.map(x=>x.reading).filter(Boolean)).slice(0,4);
+    if(!group1.includes(v.reading)) group1[0]=v.reading;
+    
+    if(v.kanji) {
+      group2 = shuffle(VOCAB.map(x=>x.kanji).filter(Boolean)).slice(0,4);
+      if(!group2.includes(v.kanji)) group2[0]=v.kanji;
+    }
+  } else if(mode==='reading2both'){
+    q = v.reading;
+    if(v.kanji) {
+      group1 = shuffle(VOCAB.map(x=>x.kanji).filter(Boolean)).slice(0,4);
+      if(!group1.includes(v.kanji)) group1[0]=v.kanji;
+    }
+    group2 = shuffle(VOCAB.map(x=>x.zh).filter(Boolean)).slice(0,4);
+    if(!group2.includes(v.zh)) group2[0]=v.zh;
+  } else { // kanji2both
+    q = v.kanji || v.reading;
+    group1 = shuffle(VOCAB.map(x=>x.reading).filter(Boolean)).slice(0,4);
+    group2 = shuffle(VOCAB.map(x=>x.zh).filter(Boolean)).slice(0,4);
+    if(!group1.includes(v.reading)) group1[0]=v.reading;
+    if(!group2.includes(v.zh)) group2[0]=v.zh;
+  }
+
+  group1 = Array.from(new Set(group1)).slice(0,4);
+  group2 = Array.from(new Set(group2)).slice(0,4);
+
+  $('#mcqQ').textContent = q || '（空白題）';
+  const box = $('#options'); box.innerHTML='';
+
+  if(group1.length>0){
+    const g1 = document.createElement('div'); g1.className='group1';
+    group1 = shuffle(group1);
+    group1.forEach(opt=>{
+      const b = document.createElement('button'); b.className='btn'; b.style.fontSize='22px'; b.textContent = opt;
+      b.onclick = ()=> onOptionClick(b,1,opt,mode);
+      g1.appendChild(b);
+    });
+    box.appendChild(g1);
+  }
+  if(group2.length>0){
+    const g2 = document.createElement('div'); g2.className='group2';
+    group2 = shuffle(group2);
+    group2.forEach(opt=>{
+      const b = document.createElement('button'); b.className='btn'; b.style.fontSize='22px'; b.textContent = opt;
+      b.onclick = ()=> onOptionClick(b,2,opt,mode);
+      g2.appendChild(b);
+    });
+    box.appendChild(g2);
+  }
+}
+
+function onOptionClick(btn, groupIndex, value, mode){
+  const gKey = groupIndex===1? 'g1':'g2';
+  if(btnSelected[gKey] && btnSelected[gKey]!==btn){ btnSelected[gKey].classList.remove('selected'); }
+  btnSelected[gKey] = btn; btnSelected[gKey].classList.add('selected');
+  selected[gKey] = value;
+
+  const needG1 = !!$('#options .group1');
+  const needG2 = !!$('#options .group2');
+  const okG1 = !needG1 || selected.g1;
+  const okG2 = !needG2 || selected.g2;
+  if(okG1 && okG2){ evaluateSelections(mode); }
+}
+
+function evaluateSelections(mode){
+  const v = currentQ;
+  if(!v) return;
+  
+  let correct1 = null, correct2 = null;
+  if(mode==='zh2both'){ correct1 = v.reading || null; correct2 = v.kanji || null; }
+  else if(mode==='reading2both'){ correct1 = v.kanji || null; correct2 = v.zh || null; }
+  else if(mode==='kanji2both'){ correct1 = v.reading || null; correct2 = v.zh || null; }
+
+  const needG1 = !!$('#options .group1');
+  const needG2 = !!$('#options .group2');
+  const sel1 = selected.g1; const sel2 = selected.g2;
+  
+  const ok1 = !needG1 || (sel1 === correct1);
+  const ok2 = !needG2 || (sel2 === correct2);
+
+  const h = document.createElement('div'); h.className='h-item';
+  const qn = document.createElement('span'); qn.textContent = (mode==='zh2both'? v.zh : (mode==='reading2both'? v.reading : (v.kanji||v.reading))) + ' → ';
+  h.appendChild(qn);
+
+  if(needG1){
+    if(ok1){ const sp=document.createElement('span'); sp.className='correct'; sp.textContent = sel1; h.appendChild(sp); }
+    else{ const spw=document.createElement('span'); spw.className='wrong'; spw.textContent = (sel1||''); h.appendChild(spw); const spc=document.createElement('span'); spc.className='correct'; spc.textContent = (correct1||''); h.appendChild(spc); }
+    h.appendChild(document.createTextNode(' | '));
+  }
+  if(needG2){
+    if(ok2){ const sp=document.createElement('span'); sp.className='correct'; sp.textContent = sel2; h.appendChild(sp); }
+    else{ const spw=document.createElement('span'); spw.className='wrong'; spw.textContent = (sel2||''); h.appendChild(spw); const spc=document.createElement('span'); spc.className='correct'; spc.textContent = (correct2||''); h.appendChild(spc); }
+  }
+
+  const histBox = $('#history'); histBox.insertBefore(h, histBox.firstChild);
+
+  speakReading(v);
+
+  stats.total++;
+  if(ok1 && ok2) stats.correct++; else stats.wrong++;
+  updateStats();
+
+  if(ok1 && ok2){
+    if(btnSelected.g1) btnSelected.g1.classList.add('correctbtn');
+    if(btnSelected.g2) btnSelected.g2.classList.add('correctbtn');
+    setTimeout(()=>{ renderMcq(); }, 700);
+  } else {
+    if(!ok1 && btnSelected.g1){ btnSelected.g1.classList.add('wrongbtn'); btnSelected.g1.disabled=true; }
+    if(!ok2 && btnSelected.g2){ btnSelected.g2.classList.add('wrongbtn'); btnSelected.g2.disabled=true; }
+    if(needG1 && correct1){ $$('#options .group1 .btn').forEach(b=>{ if(b.textContent===correct1){ b.classList.add('correctbtn'); } }); }
+    if(needG2 && correct2){ $$('#options .group2 .btn').forEach(b=>{ if(b.textContent===correct2){ b.classList.add('correctbtn'); } }); }
+  }
+}
+
+function updateStats(){
+  const s=$('#stats');
+  const rate = stats.total? ((stats.correct/stats.total*100).toFixed(1)+'%') : '0%';
+  s.textContent = `總題數: ${stats.total}，正確: ${stats.correct}，錯誤: ${stats.wrong}，正確率: ${rate}`;
+}
+
+function speakReading(v){ if(!v) return; const txt = v.reading || v.kanji || v.zh || ''; if(!txt) return; const u = new SpeechSynthesisUtterance(txt); u.lang='ja-JP'; u.rate=0.65; window.speechSynthesis.cancel(); window.speechSynthesis.speak(u); }
+
+$('#qaMode').onchange = ()=> renderMcq();
+</script>
+</body>
+</html>
