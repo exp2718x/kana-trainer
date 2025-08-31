@@ -1,0 +1,505 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>西班牙單字練習 Beta 0.5</title>
+<script src="https://cdn.jsdelivr.net/npm/xlsx/dist/xlsx.full.min.js"></script>
+<style>
+  :root{--bg:#0f172a;--card:#1e293b;--muted:#94a3b8;--bd:#334155;--accent:#38bdf8;--ok:#10b981;--err:#ef4444}
+  *{box-sizing:border-box}
+  body{font-family:system-ui,-apple-system,Segoe UI,Roboto,"Noto Sans TC",sans-serif;background:var(--bg);color:#f1f5f9;margin:0}
+  header{padding:12px;text-align:center;border-bottom:1px solid #1f2937;display:flex;justify-content:space-between;align-items:center}
+  h1{margin:0;font-size:22px}
+  .sub{color:var(--muted);font-size:13px;margin:6px 0 10px}
+  .wrap{max-width:1160px;margin:0 auto;padding:14px}
+  .row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+  .btn{padding:12px 16px;border-radius:10px;border:1px solid var(--bd);background:var(--card);color:#e5e7eb;cursor:pointer;font-size:20px}
+  .btn.accent{background:var(--accent);color:#000;border-color:var(--accent)}
+  .btn.selected{outline:3px solid #fbbf24}
+  .btn.wrongbtn{text-decoration:line-through;color:var(--err);opacity:1}
+  .btn.correctbtn{box-shadow:0 0 0 3px rgba(16,185,129,0.12);border:2px solid var(--ok)}
+  .input, select{padding:8px 10px;border-radius:10px;border:1px solid var(--bd);background:var(--bg);color:#f1f5f9;font-size:16px}
+  .big{font-size:34px;font-weight:600;margin:8px 0}
+  #history{margin-top:20px;padding:10px;border-top:1px solid var(--bd);font-size:14px;display:flex;flex-wrap:wrap;gap:8px}
+  .h-item{background:var(--card);border:1px solid var(--bd);padding:6px 10px;border-radius:8px}
+  .h-item .wrong{color:var(--err);text-decoration:line-through;margin-right:6px}
+  .h-item .correct{color:#e6f6f8}
+  #stats{margin-top:12px;font-size:15px;color:var(--muted)}
+  #options{
+    display:grid;
+    grid-template-columns:1fr;
+    gap:20px;
+    margin-top:8px;
+  }
+  #options .group1 .btn{
+    background:#334155;
+    flex:1 1 auto;
+    min-width:140px;
+    text-align:center;
+    margin:4px;
+  }
+  .modal{position:fixed;inset:0;background:rgba(0,0,0,0.6);display:none;align-items:center;justify-content:center;z-index:1000}
+  .modal-content{background:var(--card);padding:20px;border-radius:12px;max-width:560px;max-height:80vh;overflow:auto}
+  .modal h2{margin-top:0;font-size:18px}
+  .lesson-options{display:flex;flex-wrap:wrap;gap:8px}
+  .lesson-chip{padding:8px 12px;border:1px solid var(--bd);border-radius:999px;cursor:pointer;background:var(--card);color:#e5e7eb}
+  .lesson-chip.selected{background:var(--accent);color:#000;border-color:var(--accent)}
+  .setting-item { margin-bottom: 20px; }
+  .setting-item label { color: var(--muted); display: block; margin-bottom: 8px; font-size: 14px; }
+  #timerDisplay { font-size: 16px; font-weight: bold; color: var(--ok); }
+</style>
+</head>
+<body>
+<header>
+  <div id="timerDisplay"></div>
+  <h1>西班牙單字練習 Beta 0.5</h1>
+  <button id="btnSettings" class="btn">設定</button>
+</header>
+
+<div class="wrap">
+  <section id="mcq">
+    <div id="mcqQ" class="big">正在載入西班牙語預設題庫...</div>
+    <div id="options"></div>
+  </section>
+
+  <div id="stats"></div>
+  <div id="history"></div>
+</div>
+
+<!-- 設定彈窗 -->
+<div id="settingsModal" class="modal">
+  <div class="modal-content">
+    <h2>設定</h2>
+    <div class="setting-item">
+      <label for="fileInput">匯入題庫</label>
+      <input type="file" id="fileInput" class="input" accept=".xlsx,.csv,.json" />
+    </div>
+    <div class="setting-item">
+      <label>課程選擇</label>
+      <button id="btnLesson" class="btn" style="padding: 8px 12px;">選擇課程</button>
+    </div>
+    <div class="setting-item">
+      <label for="qaMode">題型</label>
+      <select id="qaMode" class="input">
+        <option value="zh2en">中文 → 西班牙語</option>
+        <option value="en2zh">西班牙語 → 中文</option>
+        <option value="random">隨機混合</option>
+      </select>
+    </div>
+    <div class="setting-item">
+      <label for="speedMode">語速</label>
+      <select id="speedMode" class="input">
+        <option value="slow">慢速</option>
+        <option value="normal" selected>中速</option>
+        <option value="fast">快速</option>
+      </select>
+    </div>
+    <div class="setting-item">
+      <label for="timerSelect">練習時間</label>
+      <select id="timerSelect" class="input">
+        <option value="unlimited">無限制</option>
+        <option value="300">5 分鐘</option>
+        <option value="600">10 分鐘</option>
+        <option value="900">15 分鐘</option>
+        <option value="1800">30 分鐘</option>
+      </select>
+    </div>
+    <div class="setting-item">
+        <label>答題錯誤訂正</label>
+        <button id="exportWrongAnswersBtn" class="btn">存檔</button>
+    </div>
+    <div style="text-align: right; margin-top: 20px;">
+      <button id="closeSettingsModalBtn" class="btn">確定</button>
+    </div>
+  </div>
+</div>
+
+<!-- 課程選擇彈窗 -->
+<div id="lessonModal" class="modal">
+  <div class="modal-content">
+    <h2>課程選擇</h2>
+    <div class="lesson-options" id="lessonOptions"></div>
+    <div style="text-align: right; margin-top: 20px;">
+      <button id="closeLessonModalBtn" class="btn">確定</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const $ = s=>document.querySelector(s);
+const $$ = s=>document.querySelectorAll(s);
+const rand = n=>Math.floor(Math.random()*n);
+const shuffle = a=>{ for(let i=a.length-1;i>0;i--){ const j=rand(i+1); [a[i],a[j]]=[a[j],a[i]];} return a };
+
+// 題庫
+let VOCAB_ALL = [];
+let VOCAB = [];
+let LESSONS = [{name: '全部', selected: true}];
+let wrongAnswers = []; // 新增：用於儲存答錯的題目
+let currentQ = null;
+let selected = {g1:null,g2:null};
+let btnSelected = {g1:null,g2:null};
+let stats={total:0,correct:0,wrong:0};
+let timerInterval = null;
+let timeLeft = 0;
+let practiceStarted = false;
+
+// 更新為西班牙文題庫連結
+const defaultVocabUrl = 'https://raw.githubusercontent.com/exp2718x/kana-trainer/main/00-%E8%A5%BF%E7%8F%AD%E7%89%99%E5%96%AE%E5%AD%97.xlsx';
+
+async function loadDefaultVocab() {
+  $('#mcqQ').textContent = '正在載入西班牙語預設題庫...';
+  try {
+    const response = await fetch(defaultVocabUrl);
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+    const data = await response.arrayBuffer();
+    const wb = XLSX.read(data, {type:'array'});
+    const ws = wb.Sheets[wb.SheetNames[0]];
+    const arr = XLSX.utils.sheet_to_json(ws, {header:1});
+    parseData(arr);
+  } catch(error) {
+    console.error('載入預設題庫失敗：', error);
+    $('#mcqQ').textContent = '載入西班牙語預設題庫失敗，請手動匯入檔案。';
+  }
+}
+
+window.addEventListener('DOMContentLoaded', ()=>{
+  warmUpSpeech();
+  loadDefaultVocab();
+});
+
+// 設定與彈窗控制
+$('#btnSettings').addEventListener('click', ()=>{
+  $('#settingsModal').style.display = 'flex';
+});
+
+$('#closeSettingsModalBtn').addEventListener('click', ()=>{
+  $('#settingsModal').style.display = 'none';
+  filterVocabByLesson();
+  startTimer();
+  if (VOCAB.length > 0) {
+    renderMcq();
+  }
+});
+
+// 檔案匯入
+$('#fileInput').addEventListener('change', e=>{
+  const file=e.target.files[0]; if(!file) return;
+  const reader=new FileReader();
+  reader.onload=evt=>{
+    const data=new Uint8Array(evt.target.result);
+    const wb=XLSX.read(data,{type:'array'});
+    const ws=wb.Sheets[wb.SheetNames[0]];
+    const arr=XLSX.utils.sheet_to_json(ws,{header:1});
+    parseData(arr);
+  };
+  reader.readAsArrayBuffer(file);
+});
+
+function parseData(rows){
+  VOCAB_ALL = [];
+  LESSONS = [{name: '全部', selected: true}];
+  let currentLesson = '全部';
+
+  for(const r of rows){
+    if(!r || !r[0]) continue;
+    const firstCol = String(r[0]).trim();
+    if(firstCol.startsWith('**')){ continue; }
+    if(firstCol.startsWith('*')){
+      currentLesson = firstCol.substring(1).trim();
+      LESSONS.push({name: currentLesson, selected: false});
+      continue;
+    }
+    VOCAB_ALL.push({en:(r[0]||'').toString().trim(), zh:(r[1]||'').toString().trim(), lesson: currentLesson});
+  }
+
+  if(VOCAB_ALL.length===0){ 
+    $('#mcqQ').textContent = '題庫為空或格式錯誤';
+    return;
+  }
+  
+  renderLessonOptions();
+  filterVocabByLesson();
+  stats={total:0,correct:0,wrong:0};
+  updateStats();
+  renderMcq();
+  warmUpSpeech();
+}
+
+function renderLessonOptions() {
+  const container = $('#lessonOptions');
+  container.innerHTML = '';
+  LESSONS.forEach(l => {
+    const chip = document.createElement('div');
+    chip.className = 'lesson-chip';
+    if(l.selected) chip.classList.add('selected');
+    chip.textContent = l.name;
+    chip.onclick = () => toggleLessonSelection(l.name);
+    container.appendChild(chip);
+  });
+}
+
+function toggleLessonSelection(lessonName) {
+  if (lessonName === '全部') {
+    LESSONS.forEach(l => l.selected = false);
+    LESSONS[0].selected = true;
+  } else {
+    LESSONS[0].selected = false;
+    const lesson = LESSONS.find(l => l.name === lessonName);
+    if(lesson) lesson.selected = !lesson.selected;
+    const selectedLessons = LESSONS.filter(l => l.selected);
+    if(selectedLessons.length === 0) {
+      LESSONS[0].selected = true;
+    }
+  }
+  renderLessonOptions();
+}
+
+function filterVocabByLesson() {
+  const selectedLessons = LESSONS.filter(l => l.selected).map(l => l.name);
+  if(selectedLessons.includes('全部')){
+    VOCAB = VOCAB_ALL;
+  } else {
+    VOCAB = VOCAB_ALL.filter(v => selectedLessons.includes(v.lesson));
+  }
+}
+
+// 課程選擇彈窗
+$('#btnLesson').addEventListener('click', ()=>{
+  renderLessonOptions();
+  $('#lessonModal').style.display = 'flex';
+});
+
+$('#closeLessonModalBtn').addEventListener('click', ()=>{
+  $('#lessonModal').style.display = 'none';
+});
+
+function clearSelectionState(){
+  selected.g1 = null; selected.g2 = null;
+  if(btnSelected.g1){ btnSelected.g1.classList.remove('selected'); }
+  if(btnSelected.g2){ btnSelected.g2.classList.remove('selected'); }
+  btnSelected.g1=null; btnSelected.g2=null;
+  $$('#options .btn').forEach(b=>{ b.disabled=false; b.classList.remove('wrongbtn','correctbtn'); });
+}
+
+function renderMcq(){
+  if (timeLeft <= 0 && $('#timerSelect').value !== 'unlimited') {
+    endPractice();
+    return;
+  }
+  if(VOCAB.length===0){ $('#mcqQ').textContent='請先匯入題庫或選擇課程'; $('#options').innerHTML=''; return; }
+  clearSelectionState();
+  const selectedMode = $('#qaMode').value;
+  const currentMode = (selectedMode === 'random') ? (Math.random() < 0.5 ? 'zh2en' : 'en2zh') : selectedMode;
+  const v = VOCAB[rand(VOCAB.length)];
+  currentQ = { ...v, mode: currentMode };
+  let q = '';
+  let group1 = [];
+
+  if(currentMode === 'zh2en'){
+    q = v.zh;
+    group1 = shuffle(VOCAB.map(x=>x.en).filter(Boolean)).slice(0,4);
+    if(!group1.includes(v.en)) group1[0]=v.en;
+  } else { // en2zh
+    q = v.en;
+    group1 = shuffle(VOCAB.map(x=>x.zh).filter(Boolean)).slice(0,4);
+    if(!group1.includes(v.zh)) group1[0]=v.zh;
+  }
+
+  group1 = Array.from(new Set(group1)).slice(0,4);
+  
+  $('#mcqQ').textContent = q || '（空白題）';
+  const box = $('#options'); box.innerHTML='';
+
+  if(group1.length>0){
+    const g1 = document.createElement('div'); g1.className='group1';
+    group1 = shuffle(group1);
+    group1.forEach(opt=>{
+      const b = document.createElement('button'); b.className='btn'; b.style.fontSize='22px'; b.textContent = opt;
+      b.onclick = ()=> onOptionClick(b,1,opt);
+      g1.appendChild(b);
+    });
+    box.appendChild(g1);
+  }
+}
+
+function onOptionClick(btn, groupIndex, value){
+  if (timeLeft <= 0 && $('#timerSelect').value !== 'unlimited') {
+    return;
+  }
+  if (!practiceStarted) {
+    practiceStarted = true;
+    startTimer();
+  }
+
+  const gKey = groupIndex===1? 'g1':'g2';
+  if(btnSelected[gKey] && btnSelected[gKey]!==btn){ btnSelected[gKey].classList.remove('selected'); }
+  btnSelected[gKey] = btn; btnSelected[gKey].classList.add('selected');
+  selected[gKey] = value;
+  evaluateSelections();
+}
+
+function evaluateSelections(){
+  const v = currentQ;
+  if(!v) return;
+  
+  let correct = null;
+  const mode = v.mode;
+  if(mode === 'zh2en'){ correct = v.en || null; }
+  else { correct = v.zh || null; }
+
+  const sel = selected.g1;
+  const ok = (sel === correct);
+
+  const h = document.createElement('div'); h.className='h-item';
+  const qn = document.createElement('span'); qn.textContent = (mode === 'zh2en' ? v.zh : v.en) + ' → ';
+  h.appendChild(qn);
+
+  if(ok){ 
+    const sp=document.createElement('span'); sp.className='correct'; sp.textContent = sel; h.appendChild(sp); 
+  } else { 
+    // 如果答錯，將單字加入錯題列表
+    wrongAnswers.push(v);
+    const spw=document.createElement('span'); spw.className='wrong'; spw.textContent = (sel||''); h.appendChild(spw); 
+    const spc=document.createElement('span'); spc.className='correct'; spc.textContent = (correct||''); h.appendChild(spc); 
+  }
+
+  const histBox = $('#history'); histBox.insertBefore(h, histBox.firstChild);
+
+  if(ok) {
+    speakReading(v); 
+  }
+
+  stats.total++;
+  if(ok) stats.correct++; else stats.wrong++;
+  updateStats();
+
+  if(ok){
+    if(btnSelected.g1) btnSelected.g1.classList.add('correctbtn');
+    setTimeout(()=>{ renderMcq(); }, 700);
+  } else {
+    if(btnSelected.g1){ btnSelected.g1.classList.add('wrongbtn'); btnSelected.g1.disabled=true; }
+    if(correct){ $$('#options .group1 .btn').forEach(b=>{ if(b.textContent===correct){ b.classList.add('correctbtn'); } }); }
+  }
+}
+
+function updateStats(){
+  const s=$('#stats');
+  const rate = stats.total? ((stats.correct/stats.total*100).toFixed(1)+'%') : '0%';
+  s.textContent = `總題數: ${stats.total}，正確: ${stats.correct}，錯誤: ${stats.wrong}，正確率: ${rate}`;
+}
+
+function speakReading(v){ 
+  if(!v) return;
+  const u = new SpeechSynthesisUtterance(v.en);
+  // 將語言代碼從 'en-US' 改為 'es-ES'
+  u.lang='es-ES'; 
+
+  const speedMode = $('#speedMode').value;
+  if (speedMode === 'slow') { u.rate = 0.5; }
+  else if (speedMode === 'normal') { u.rate = 0.8; }
+  else { u.rate = 1.2; }
+
+  window.speechSynthesis.cancel(); 
+  window.speechSynthesis.speak(u); 
+}
+
+function warmUpSpeech() {
+  const utterance = new SpeechSynthesisUtterance(".");
+  utterance.volume = 0;
+  // 同樣將熱身語音的語言代碼改為 'es-ES'
+  utterance.lang = "es-ES";
+  window.speechSynthesis.speak(utterance);
+}
+
+// 計時器邏輯
+function startTimer() {
+  if (timerInterval) clearInterval(timerInterval);
+  const selectedTime = $('#timerSelect').value;
+  if (selectedTime === 'unlimited') {
+    $('#timerDisplay').textContent = '';
+    return;
+  }
+  timeLeft = parseInt(selectedTime, 10);
+  updateTimerDisplay();
+  timerInterval = setInterval(() => {
+    timeLeft--;
+    updateTimerDisplay();
+    if (timeLeft <= 0) {
+      clearInterval(timerInterval);
+      endPractice();
+    }
+  }, 1000);
+}
+
+function updateTimerDisplay() {
+  const minutes = Math.floor(timeLeft / 60);
+  const seconds = timeLeft % 60;
+  $('#timerDisplay').textContent = `${minutes}:${seconds.toString().padStart(2, '0')}`;
+}
+
+function endPractice() {
+  $('#mcqQ').textContent = '時間到！練習結束。';
+  $('#options').innerHTML = '';
+  $$('#options .btn').forEach(b => b.disabled = true);
+}
+
+// 匯出錯題
+function exportWrongAnswers() {
+    if (wrongAnswers.length === 0) {
+        // 使用自訂的訊息框而不是 alert
+        showCustomAlert('沒有答錯的題目。');
+        return;
+    }
+    const uniqueWrongAnswers = [...new Set(wrongAnswers.map(item => JSON.stringify(item)))].map(item => JSON.parse(item));
+    const header = '英文單字,中文\n';
+    const csvContent = '\uFEFF' + header + uniqueWrongAnswers.map(e => `"${e.en}","${e.zh}"`).join('\n');
+    
+    // 取得當前日期和時間並格式化
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = (now.getMonth() + 1).toString().padStart(2, '0');
+    const day = now.getDate().toString().padStart(2, '0');
+    const hours = now.getHours().toString().padStart(2, '0');
+    const minutes = now.getMinutes().toString().padStart(2, '0');
+    const timestamp = `${year}${month}${day}_${hours}${minutes}`;
+    // 更新匯出檔名，增加語言資訊
+    const filename = `西班牙語答題錯誤訂正_${timestamp}.csv`;
+
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    if (link.download !== undefined) {
+        const url = URL.createObjectURL(blob);
+        link.setAttribute('href', url);
+        link.setAttribute('download', filename);
+        link.style.visibility = 'hidden';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+    }
+}
+
+// 模擬 alert 的自訂訊息框
+function showCustomAlert(message) {
+  const modal = document.createElement('div');
+  modal.className = 'modal';
+  modal.style.display = 'flex';
+  modal.innerHTML = `
+    <div class="modal-content" style="text-align: center;">
+      <p style="margin-bottom: 20px;">${message}</p>
+      <button class="btn" style="width: 100%;" onclick="this.closest('.modal').remove()">確定</button>
+    </div>
+  `;
+  document.body.appendChild(modal);
+}
+
+// 綁定事件
+$('#qaMode').onchange = ()=> renderMcq();
+$('#speedMode').onchange = ()=> speakReading(currentQ);
+$('#exportWrongAnswersBtn').addEventListener('click', exportWrongAnswers);
+</script>
+</body>
+</html>
