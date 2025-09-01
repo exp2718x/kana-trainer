@@ -467,8 +467,6 @@ function evaluateSelections(){
 
   if (!ok1 || !ok2) {
     wrongAnswers.push(v);
-  } else {
-    speakReading(v); 
   }
 
   stats.total++;
@@ -478,7 +476,7 @@ function evaluateSelections(){
   if(ok1 && ok2){
     if(btnSelected.g1) btnSelected.g1.classList.add('correctbtn');
     if(btnSelected.g2) btnSelected.g2.classList.add('correctbtn');
-    setTimeout(()=>{ renderMcq(); }, 700);
+    speakReading(v, renderMcq);
   } else {
     if(!ok1 && btnSelected.g1){ btnSelected.g1.classList.add('wrongbtn'); btnSelected.g1.disabled=true; }
     if(!ok2 && btnSelected.g2){ btnSelected.g2.classList.add('wrongbtn'); btnSelected.g2.disabled=true; }
@@ -494,10 +492,13 @@ function updateStats(){
   s.textContent = `總題數: ${stats.total}，正確: ${stats.correct}，錯誤: ${stats.wrong}，正確率: ${rate}`;
 }
 
-function speakReading(v){ 
-  if(!v) return;
+function speakReading(v, callback) { 
+  if (!v) return;
   const txt = v.reading || v.kanji || v.zh || ''; 
-  if(!txt) return; 
+  if (!txt) {
+    if (callback) callback();
+    return;
+  } 
 
   const u = new SpeechSynthesisUtterance(txt); 
   u.lang='ja-JP'; 
@@ -505,7 +506,13 @@ function speakReading(v){
   const speedMode = $('#speedMode').value;
   if (speedMode === 'slow') { u.rate = 0.5; }
   else if (speedMode === 'normal') { u.rate = 0.8; }
-  else { u.rate = 1.2; }
+  else { u.rate = 1.0; } // 這裡從 1.2 改為 1.0
+  
+  if (callback) {
+    u.onend = () => {
+      callback();
+    };
+  }
 
   window.speechSynthesis.cancel(); 
   window.speechSynthesis.speak(u); 
