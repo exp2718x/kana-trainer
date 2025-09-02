@@ -16,8 +16,8 @@
     --err:#ef4444;
     --group1-bg:#1e293b;
     --group2-bg:#3b82f6;
-    --table-bg: #4f2937; /* 我已幫你調整為 #4f2937 */
-    --header-bg: #004d40; /* 新增深綠色變數 */
+    --table-bg: #4f2937;
+    --header-bg: #004d40;
   }
   *{box-sizing:border-box}
   body{font-family:system-ui,-apple-system,Segoe UI,Roboto,"Noto Sans TC",sans-serif;background:var(--bg);color:#f1f5f9;margin:0}
@@ -72,14 +72,25 @@
       width: 100%;
       border-collapse: collapse;
       margin-top: 10px;
+      table-layout: fixed; /* 新增這一行 */
   }
   #vocabTable th, #vocabTable td {
       padding: 12px;
       text-align: left;
       border-bottom: 1px solid var(--bd);
   }
+  /* 為每個標題欄設定寬度 */
+  #vocabTable th:nth-child(1) {
+      width: 36.36%; /* 4 / 11 */
+  }
+  #vocabTable th:nth-child(2) {
+      width: 36.36%; /* 4 / 11 */
+  }
+  #vocabTable th:nth-child(3) {
+      width: 27.27%; /* 3 / 11 */
+  }
   #vocabTable th {
-      background-color: var(--header-bg); /* 將這裡改為新定義的深綠色 */
+      background-color: var(--header-bg);
       font-weight: bold;
       color: #cbd5e1;
       position: sticky;
