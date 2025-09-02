@@ -59,7 +59,7 @@
     margin:4px;
   }
   .modal{position:fixed;inset:0;background:rgba(0,0,0,0.6);display:none;align-items:center;justify-content:center;z-index:1000}
-  .modal-content{background:var(--card);padding:20px;border-radius:12px;max-width:560px;max-height:80vh;overflow:auto}
+  .modal-content{background:var(--card);padding:8px;border-radius:12px;max-width:620px;max-height:80vh;overflow:auto}
   .modal h2{margin-top:0;font-size:18px}
   .lesson-options{display:flex;flex-wrap:wrap;gap:8px}
   .lesson-chip{padding:8px 12px;border:1px solid var(--bd);border-radius:999px;cursor:pointer;background:var(--card);color:#e5e7eb}
@@ -72,22 +72,12 @@
       width: 100%;
       border-collapse: collapse;
       margin-top: 10px;
-      table-layout: fixed; /* 新增這一行 */
+      table-layout: fixed;
   }
   #vocabTable th, #vocabTable td {
       padding: 12px;
       text-align: left;
       border-bottom: 1px solid var(--bd);
-  }
-  /* 為每個標題欄設定寬度 */
-  #vocabTable th:nth-child(1) {
-      width: 40%;
-  }
-  #vocabTable th:nth-child(2) {
-      width: 32%;
-  }
-  #vocabTable th:nth-child(3) {
-      width: 28%;
   }
   #vocabTable th {
       background-color: var(--header-bg);
@@ -95,6 +85,15 @@
       color: #cbd5e1;
       position: sticky;
       top: 0;
+  }
+  #vocabTable th:nth-child(1) {
+      width: 36.36%;
+  }
+  #vocabTable th:nth-child(2) {
+      width: 36.36%;
+  }
+  #vocabTable th:nth-child(3) {
+      width: 27.27%;
   }
   #vocabTable td {
       background-color: transparent;
@@ -114,11 +113,6 @@
   }
   .setting-buttons .btn {
       width: 100%;
-  }
-  @media (max-width: 1080) {
-  .wrap {
-    padding: 0 5px;
-    }
   }
 </style>
 </head>
