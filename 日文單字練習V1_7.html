@@ -75,7 +75,7 @@
       table-layout: fixed; /* 新增這一行 */
   }
   #vocabTable th, #vocabTable td {
-      padding: 2px;
+      padding: 12px;
       text-align: left;
       border-bottom: 1px solid var(--bd);
   }
@@ -114,6 +114,11 @@
   }
   .setting-buttons .btn {
       width: 100%;
+  }
+  @media (max-width: 768px) {
+  .wrap {
+    padding: 0 5px;
+    }
   }
 </style>
 </head>
