@@ -16,7 +16,8 @@
     --err:#ef4444;
     --group1-bg:#1e293b;
     --group2-bg:#3b82f6;
-    --table-bg: #1f2937;
+    --table-bg: #4f2937; /* 我已幫你調整為 #4f2937 */
+    --header-bg: #004d40; /* 新增深綠色變數 */
   }
   *{box-sizing:border-box}
   body{font-family:system-ui,-apple-system,Segoe UI,Roboto,"Noto Sans TC",sans-serif;background:var(--bg);color:#f1f5f9;margin:0}
@@ -78,7 +79,7 @@
       border-bottom: 1px solid var(--bd);
   }
   #vocabTable th {
-      background-color: var(--table-bg);
+      background-color: var(--header-bg); /* 將這裡改為新定義的深綠色 */
       font-weight: bold;
       color: #cbd5e1;
       position: sticky;
@@ -87,8 +88,21 @@
   #vocabTable td {
       background-color: transparent;
   }
+  #vocabTable tbody tr:nth-child(odd) {
+      background-color: var(--table-bg);
+  }
   .vocab-row:hover {
     background-color: var(--bd);
+  }
+  .setting-buttons {
+      display: flex;
+      gap: 8px;
+  }
+  .setting-buttons > div {
+      flex: 1;
+  }
+  .setting-buttons .btn {
+      width: 100%;
   }
 </style>
 </head>
@@ -97,7 +111,6 @@
   <div id="timerDisplay"></div>
   <h1>日文單字練習 V1.7</h1>
   <div>
-    <button id="btnVocabList" class="btn" style="background: white; color: black; border: 1px solid #ddd;">單字表</button>
     <button id="btnSettings" class="btn" style="background: white; color: black; border: 1px solid #ddd;">設定</button>
   </div>
 </header>
@@ -120,29 +133,32 @@
       <label for="fileInput">匯入題庫</label>
       <input type="file" id="fileInput" class="input" accept=".xlsx,.csv,.json" />
     </div>
-    <div class="setting-item">
-      <label>課程選擇</label>
-      <button id="btnLesson" class="btn" style="background: white; color: black; border: 1px solid #ddd;">選擇課程</button>
+    <div class="setting-item" style="display: flex; gap: 8px; flex-wrap: wrap;">
+      <label style="flex: 1 1 100%;">課程選擇</label>
+      <button id="btnLesson" class="btn" style="background: white; color: black; border: 1px solid #ddd; flex: 1;">選擇課程</button>
+      <button id="btnVocabList" class="btn" style="background: white; color: black; border: 1px solid #ddd; flex: 1;">單字表</button>
+    </div>
+    <div class="setting-item" style="display: flex; gap: 20px; flex-wrap: wrap;">
+      <div style="flex: 1 1 150px;">
+        <label for="questionType">題型顯示</label>
+        <select id="questionType" class="input" style="width: 100%;">
+          <option value="jp_kana">日文假名</option>
+          <option value="jp_kanji">日文漢字</option>
+          <option value="zh" selected>中文</option>
+        </select>
+      </div>
+      <div style="flex: 1 1 150px;">
+        <label for="speedMode">語速</label>
+        <select id="speedMode" class="input" style="width: 100%;">
+          <option value="slow">慢速</option>
+          <option value="normal" selected>中速</option>
+          <option value="fast">快速</option>
+        </select>
+      </div>
     </div>
     <div class="setting-item">
-      <label for="questionType">題型顯示</label>
-      <select id="questionType" class="input">
-        <option value="jp_kana">日文假名</option>
-        <option value="jp_kanji">日文漢字</option>
-        <option value="zh" selected>中文</option>
-      </select>
-    </div>
-    <div class="setting-item">
-      <label for="speedMode">語速</label>
-      <select id="speedMode" class="input">
-        <option value="slow">慢速</option>
-        <option value="normal" selected>中速</option>
-        <option value="fast">快速</option>
-      </select>
-    </div>
-    <div class="setting-item">
-      <label for="timerSelect">練習時間</label>
-      <select id="timerSelect" class="input">
+      <label>練習時間</label>
+      <select id="timerSelect" class="input" style="width: 100%;">
         <option value="unlimited">無限制</option>
         <option value="300">5 分鐘</option>
         <option value="600">10 分鐘</option>
@@ -151,12 +167,16 @@
       </select>
     </div>
     <div class="setting-item">
-        <label>答題錯誤訂正</label>
-        <button id="exportWrongAnswersBtn" class="btn" style="background: white; color: black; border: 1px solid #ddd;">存檔</button>
-    </div>
-    <div class="setting-item">
-        <label>答題歷史紀錄</label>
-        <button id="clearHistoryBtn" class="btn" style="background: white; color: black; border: 1px solid #ddd;">清除</button>
+        <div class="setting-buttons">
+            <div>
+                <label>答題錯誤訂正</label>
+                <button id="exportWrongAnswersBtn" class="btn" style="background: white; color: black; border: 1px solid #ddd;">存檔</button>
+            </div>
+            <div>
+                <label>歷史紀錄</label>
+                <button id="clearHistoryBtn" class="btn" style="background: white; color: black; border: 1px solid #ddd;">清除</button>
+            </div>
+        </div>
     </div>
     <div style="text-align: right; margin-top: 20px;">
       <button id="closeSettingsModalBtn" class="btn" style="background: white; color: black; border: 1px solid #ddd;">確定</button>
@@ -170,7 +190,7 @@
     <h2>課程選擇</h2>
     <div class="lesson-options" id="lessonOptions"></div>
     <div style="text-align: right; margin-top: 20px;">
-      <button id="closeLessonModalBtn" class="btn" style="background: white; color: black; border: 1px solid #ddd;">確定</button>
+      <button id="closeLessonModalBtn" class="btn" style="background: white; color: black; border: 13x solid #ddd;">確定</button>
     </div>
   </div>
 </div>
@@ -671,6 +691,7 @@ function clearHistoryAndStats() {
 
 // 單字表功能
 $('#btnVocabList').addEventListener('click', () => {
+    filterVocabByLesson(); // 在打開單字表前先過濾單字
     currentVocabPage = 0;
     renderVocabList();
 });
