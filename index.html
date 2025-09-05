@@ -10,21 +10,20 @@
       text-align: center;
       margin: 50px;
       background: #f4f4f9;
-      font-size: 16px; /* 增加基礎字體大小 */
+      font-size: 16px;
     }
     h1 {
       color: #333;
-      font-size: 2rem; /* 使用相對單位 */
+      font-size: 2rem;
     }
     .menu {
       display: flex;
-      justify-content: center;
-      flex-wrap: wrap;
+      flex-direction: column; /* 改為垂直排列 */
+      align-items: center; /* 置中 */
       gap: 20px;
       margin-top: 40px;
     }
     .menu a {
-      /* 修改這裡，使用 flexbox 來垂直置中 */
       display: flex;
       align-items: center;
       justify-content: center;
@@ -32,9 +31,9 @@
       background: #4CAF50;
       color: white;
       text-decoration: none;
-      font-size: 1.125rem; /* 使用相對單位 */
+      font-size: 1.125rem;
       border-radius: 8px;
-      min-width: 120px;
+      min-width: 200px; /* 調整按鈕寬度讓看起來更直觀 */
       transition: background 0.3s;
     }
     .menu a:hover {
@@ -45,16 +44,6 @@
       pointer-events: none;
       cursor: not-allowed;
       opacity: 0.6;
-    }
-    
-    /* 媒體查詢：當螢幕寬度小於等於 600px 時套用 */
-    @media (max-width: 600px) {
-      body {
-        margin: 20px; /* 調整手機上的外邊距 */
-      }
-      .menu a {
-        padding: 12px 24px; /* 調整手機上的按鈕內邊距 */
-      }
     }
   </style>
 </head>
@@ -70,9 +59,8 @@
       { name: "日語五十音練習", file: "日文五十音練習網頁V3.html", open: true },
       { name: "日文單字練習", file: "日文單字練習V1_7.html", open: true },
       { name: "日語文型練習", file: "日文文型練習V1.html", open: true },
-      { name: "西班牙文單字練習<br>（測試中）", file: "西班牙練習網站V0_5.html", open: true }, // 修改這裡
+      { name: "西班牙文單字練習<br>（測試中）", file: "西班牙練習網站V0_5.html", open: true },
       { name: "英文單字練習", file: "英文單字練習V1_1.html", open: true }
-      // 後續要加 a03、a04，只要加在這裡
     ];
 
     const menuDiv = document.getElementById("menu");
@@ -80,11 +68,11 @@
     // 生成按鈕
     pages.forEach(p => {
       const a = document.createElement("a");
-      a.innerHTML = p.name; // 修改這裡
+      a.innerHTML = p.name;
       if (p.open) {
-        a.href = p.file; // 可用頁面設連結
+        a.href = p.file;
       } else {
-        a.href = "#"; // 停用頁面不要跳轉
+        a.href = "#";
         a.classList.add("disabled");
       }
       menuDiv.appendChild(a);
@@ -92,8 +80,3 @@
   </script>
 </body>
 </html>
-
-
-
-
-
