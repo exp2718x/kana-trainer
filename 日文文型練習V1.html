@@ -3,13 +3,13 @@
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>日語文型練習 V1</title>
+    <title>日語文型練習</title>
     <script src="https://cdn.jsdelivr.net/npm/xlsx/dist/xlsx.full.min.js"></script>
     <style>
         :root{
             --bg:#0f172a;
             --card-even:#1e293b;
-            --card-odd:#442a2a;
+            --card-odd:#2c3a4e;
             --modal-bg:#1e293b;
             --muted:#94a3b8;
             --bd:#334155;
@@ -67,7 +67,7 @@
             background: var(--card-odd);
         }
         .vocab-item:hover {
-            background: #335533;
+            background: #2b3a4f;
         }
         .vocab-reading {
             font-size: 1.2rem;
@@ -224,7 +224,7 @@
 </head>
 <body>
     <header>
-        <h1>日語文型練習 V1</h1>
+        <h1>日語文型練習</h1>
         <button class="btn-header" id="settingsBtn">
             設定
         </button>
@@ -248,11 +248,13 @@
             <div class="setting-item">
                 <label>語音速度：</label>
                 <div class="speed-options">
-                    <input type="radio" id="speedSlow" name="speed" class="speed-input" data-rate="0.7">
+                    <input type="radio" id="speedSlow" name="speed" class="speed-input" data-rate="0.55">
                     <label for="speedSlow" class="speed-label">慢</label>
-                    <input type="radio" id="speedNormal" name="speed" class="speed-input" data-rate="1.0" checked>
+                    <input type="radio" id="speedSlower" name="speed" class="speed-input" data-rate="0.75" checked>
+                    <label for="speedSlower" class="speed-label">中慢</label>
+                    <input type="radio" id="speedNormal" name="speed" class="speed-input" data-rate="0.95">
                     <label for="speedNormal" class="speed-label">中</label>
-                    <input type="radio" id="speedFast" name="speed" class="speed-input" data-rate="1.3">
+                    <input type="radio" id="speedFast" name="speed" class="speed-input" data-rate="1.15">
                     <label for="speedFast" class="speed-label">快</label>
                 </div>
             </div>
@@ -306,8 +308,9 @@
                 const rawData = XLSX.utils.sheet_to_json(worksheet, { header: ["reading", "kanji", "zh"] });
 
                 allVocabData = [];
-                courses = [];
-                let currentCourseIndex = -1;
+                courses = [{ name: '全部', index: 'all' }]; // 新增「全部」選項
+                
+                let currentCourseIndex = 0;
 
                 // 遍歷原始資料，分離課程與文型
                 rawData.forEach((row, index) => {
@@ -315,16 +318,16 @@
                         // 這是註釋行，忽略
                     } else if (row.reading && row.reading.startsWith('*')) {
                         // 這是課程行，儲存課程名稱
-                        courses.push({ name: row.reading.substring(1).trim(), start_index: allVocabData.length });
+                        courses.push({ name: row.reading.substring(1).trim(), index: currentCourseIndex });
                         currentCourseIndex++;
                     } else if (row.reading || row.kanji || row.zh) {
                         // 這是文型資料
-                        allVocabData.push({ ...row, courseIndex: currentCourseIndex });
+                        allVocabData.push({ ...row, courseIndex: currentCourseIndex - 1 });
                     }
                 });
                 
-                // 預設選取所有課程
-                selectedCourses = courses.map((_, index) => index);
+                // 預設選取「全部」選項
+                selectedCourses = ['all'];
                 renderLessonOptions();
                 renderVocab(allVocabData);
 
@@ -339,16 +342,19 @@
         // 渲染課程選項
         function renderLessonOptions() {
             lessonOptionsDiv.innerHTML = '';
-            courses.forEach((course, index) => {
+            courses.forEach(course => {
                 const chip = document.createElement('div');
                 chip.className = 'lesson-chip';
-                if (selectedCourses.includes(index)) {
+                chip.textContent = course.name;
+                chip.dataset.index = course.index;
+                
+                // 設定選取狀態
+                if (selectedCourses.includes(course.index)) {
                     chip.classList.add('selected');
                 }
-                chip.textContent = course.name;
-                chip.dataset.index = index;
+
                 chip.addEventListener('click', () => {
-                    toggleCourseSelection(index);
+                    toggleCourseSelection(course.index);
                 });
                 lessonOptionsDiv.appendChild(chip);
             });
@@ -356,25 +362,60 @@
 
         // 切換課程選取狀態
         function toggleCourseSelection(index) {
-            const chip = lessonOptionsDiv.querySelector(`.lesson-chip[data-index="${index}"]`);
-            if (selectedCourses.includes(index)) {
-                selectedCourses = selectedCourses.filter(i => i !== index);
-                chip.classList.remove('selected');
+            const allChip = lessonOptionsDiv.querySelector(`[data-index="all"]`);
+            
+            if (index === 'all') {
+                // 如果點擊的是「全部」，則只選取「全部」
+                selectedCourses = ['all'];
+                document.querySelectorAll('.lesson-chip').forEach(chip => {
+                    chip.classList.remove('selected');
+                });
+                allChip.classList.add('selected');
             } else {
-                selectedCourses.push(index);
-                chip.classList.add('selected');
+                // 如果點擊的是其他課程
+                const chip = lessonOptionsDiv.querySelector(`[data-index="${index}"]`);
+                
+                // 如果「全部」是選取的，先取消選取它
+                if (selectedCourses.includes('all')) {
+                    selectedCourses = selectedCourses.filter(i => i !== 'all');
+                    allChip.classList.remove('selected');
+                }
+
+                // 切換目前點擊的課程
+                if (selectedCourses.includes(index)) {
+                    selectedCourses = selectedCourses.filter(i => i !== index);
+                    chip.classList.remove('selected');
+                } else {
+                    selectedCourses.push(index);
+                    chip.classList.add('selected');
+                }
+
+                // 如果所有課程都取消選取了，就回到「全部」
+                if (selectedCourses.length === 0) {
+                    selectedCourses = ['all'];
+                    allChip.classList.add('selected');
+                }
             }
         }
         
         // 渲染文型列表
         function renderVocab(vocab) {
             vocabListDiv.innerHTML = '';
-            if (vocab.length === 0) {
+            
+            let filteredVocab;
+            // 判斷是否選取「全部」來決定是否過濾
+            if (selectedCourses.includes('all')) {
+                filteredVocab = vocab;
+            } else {
+                filteredVocab = vocab.filter(item => selectedCourses.includes(item.courseIndex));
+            }
+
+            if (filteredVocab.length === 0) {
                 vocabListDiv.innerHTML = '<p style="text-align: center; color: var(--muted);">沒有找到文型資料。</p>';
                 return;
             }
 
-            vocab.forEach((item, index) => {
+            filteredVocab.forEach((item, index) => {
                 const itemDiv = document.createElement('div');
                 itemDiv.className = `vocab-item ${index % 2 === 0 ? 'even' : 'odd'}`;
                 
@@ -420,7 +461,7 @@
                 vocabListDiv.appendChild(itemDiv);
             });
         }
-
+        
         // 處理檔案上傳
         fileInput.addEventListener('change', (event) => {
             const file = event.target.files[0];
@@ -435,24 +476,24 @@
                 const rawData = XLSX.utils.sheet_to_json(worksheet, { header: ["reading", "kanji", "zh"] });
 
                 allVocabData = [];
-                courses = [];
-                let currentCourseIndex = -1;
+                courses = [{ name: '全部', index: 'all' }];
+                let currentCourseIndex = 0;
 
                 rawData.forEach((row, index) => {
                     if (row.reading && row.reading.startsWith('**')) {
                         // 這是註釋行，忽略
                     } else if (row.reading && row.reading.startsWith('*')) {
                         // 這是課程行，儲存課程名稱
-                        courses.push({ name: row.reading.substring(1).trim(), start_index: allVocabData.length });
+                        courses.push({ name: row.reading.substring(1).trim(), index: currentCourseIndex });
                         currentCourseIndex++;
                     } else if (row.reading || row.kanji || row.zh) {
                         // 這是文型資料
-                        allVocabData.push({ ...row, courseIndex: currentCourseIndex });
+                        allVocabData.push({ ...row, courseIndex: currentCourseIndex - 1 });
                     }
                 });
 
-                // 預設選取所有課程並渲染
-                selectedCourses = courses.map((_, index) => index);
+                // 預設選取「全部」選項
+                selectedCourses = ['all'];
                 renderLessonOptions();
                 
                 // 上傳後自動重新渲染
@@ -463,8 +504,7 @@
         
         // 根據選擇的課程更新文型列表
         function updateVocabList() {
-            const filteredVocab = allVocabData.filter(item => selectedCourses.includes(item.courseIndex));
-            renderVocab(filteredVocab);
+            renderVocab(allVocabData);
             settingsModal.style.display = 'none'; // 載入後關閉視窗
         }
 
